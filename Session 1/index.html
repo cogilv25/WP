@@ -1,0 +1,57 @@
+<!DOCTYPE html>
+<html>
+    <head>
+        <title>
+            Simple Game
+        </title>
+    </head>
+    <body>
+        <audio id="audio">
+            <source src="test.mp3" type="audio/mpeg">
+        </audio>
+        <div style="display: flex; flex-direction: column; justify-content: space-around;">
+            <div style="display: flex; flex-direction: row; justify-content: space-around;">
+                <button type="button" id="playButton">Play</button>
+                <button type="button" id="pauseButton">Pause</button>
+            </div>
+            <canvas id="canvas" width="800" height="600" style="background-color: #f0f0f0; margin-top: 50px;"></canvas>
+        </div>
+        <script>
+            "use strict"
+            let player = document.getElementById("audio");
+            let playerStatus = false;
+
+            let canvas = document.getElementById("canvas");
+            let ctx = canvas.getContext("2d");
+
+            let playButton = document.getElementById("playButton");
+            let pauseButton = document.getElementById("pauseButton");
+
+            ctx.fillStyle = "#000000";
+            ctx.fillRect(0,0,300,300);
+
+            ctx.fillStyle = "#ff1111";
+            ctx.font = "20px Arial";
+            ctx.fillText("Hello World!",100,150);
+
+            
+
+            playButton.addEventListener("click", () => {playerStatus = true; player.play();});
+            pauseButton.addEventListener("click", () => {playerStatus = false; player.pause();});
+
+            function toggleAudio()
+            {
+                playerStatus ? player.pause() : player.play();
+                playerStatus = !playerStatus;
+            }
+
+            document.body.addEventListener("keyup", (e) => {
+                e.preventDefault();
+                
+                if (e.keyCode === 32)
+                    toggleAudio();
+            });
+
+        </script>
+    </body>
+</html>
