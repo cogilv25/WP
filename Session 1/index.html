@@ -1,6 +1,7 @@
 <!DOCTYPE html>
 <html>
     <head>
+        <script src="./Box2dWeb-2.1.a.3.min.js"></script>
         <title>
             Tutorial 1
         </title>
@@ -24,41 +25,44 @@
                 <canvas id="canvas" width="800" height="600" style="width: 800px; height: 600px; background-color: #f0f0f0; margin-top: 50px;"></canvas>
             </div>
         </div>
+        <img id="finishimg" src="./goal.png" style="display: none;"/>
+        <img id="ladimg" src="./ladder.png" style="display: none;"/>
+        <script src="./main.js"></script>
         <script>
             "use strict"
-            let player = document.getElementById("audio");
-            let playerStatus = false;
+            let audio = document.getElementById("audio");
+            let audioStatus = false;
 
-            let canvas = document.getElementById("canvas");
-            let ctx = canvas.getContext("2d");
+            // let canvas = document.getElementById("canvas");
+            // let ctx = canvas.getContext("2d");
 
             let playButton = document.getElementById("playButton");
             let pauseButton = document.getElementById("pauseButton");
 
-            ctx.fillStyle = "#000000";
-            ctx.fillRect(0,0,300,300);
+            // ctx.fillStyle = "#000000";
+            // ctx.fillRect(0,0,300,300);
 
-            ctx.fillStyle = "#ff1111";
-            ctx.font = "20px Arial";
-            ctx.fillText("Hello World!",100,150);
+            // ctx.fillStyle = "#ff1111";
+            // ctx.font = "20px Arial";
+            // ctx.fillText("Hello World!",100,150);
 
             
 
-            playButton.addEventListener("click", () => {playerStatus = true; player.play();});
-            pauseButton.addEventListener("click", () => {playerStatus = false; player.pause();});
+            playButton.addEventListener("click", () => {audioStatus = true; audio.play();});
+            pauseButton.addEventListener("click", () => {audioStatus = false; audio.pause();});
 
             function toggleAudio()
             {
-                playerStatus ? player.pause() : player.play();
-                playerStatus = !playerStatus;
+                audioStatus ? audio.pause() : audio.play();
+                audioStatus = !audioStatus;
             }
 
-            document.body.addEventListener("keyup", (e) => {
-                e.preventDefault();
+            // document.body.addEventListener("keyup", (e) => {
+            //     e.preventDefault();
                 
-                if (e.keyCode === 32)
-                    toggleAudio();
-            });
+            //     if (e.keyCode === 32)
+            //         toggleAudio();
+            // });
 
         </script>
     </body>
