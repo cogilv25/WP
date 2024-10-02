@@ -19,8 +19,8 @@ var SCALE=30;
 let canvas = document.getElementById("canvas");
 let ctx = canvas.getContext("2d");
 
-var goal = document.getElementById("finishimg");
-var ladderimg = document.getElementById("ladimg");
+var goalImage = document.getElementById("goalImg");
+var ladderImage = document.getElementById("ladderImg");
 
 var heroOnGround = false;
 var heroOnLadder = false;
@@ -105,9 +105,9 @@ world.SetDebugDraw(debugDraw);
 function update() {
 
     if(heroOnLadder)
-        {
-            hero.GetBody().ApplyForce(new b2Vec2(0, -3), hero.GetBody().GetWorldCenter());
-        }
+    {
+        hero.GetBody().ApplyForce(new b2Vec2(0, -3), hero.GetBody().GetWorldCenter());
+    }
     world.Step(
     1/60, // framerate
     10, // velocity iterations
@@ -122,8 +122,8 @@ function update() {
     }
     destroylist.length = 0;
         
-    ctx.drawImage(goal, 505, 10);
-    ctx.drawImage(ladderimg, 250, 112, 96, 96);
+    ctx.drawImage(goalImage, 505, 10);
+    ctx.drawImage(ladderImage, 250, 112, 96, 96);
 
     if(running)
         window.requestAnimationFrame(update);
@@ -244,7 +244,7 @@ document.addEventListener("keydown", (e) => {
             }
             break;
 
-        // RIGHT
+        // RIGHT_CONTROL_KEY_DOWN
         case 68:
         case 39:
             if(heroOnLadder)
@@ -416,27 +416,20 @@ listener.PostSolve = function(contact, impulse) {
 
     //Handle bounce platform
     if(fixa == "barrel" && fixb == "bounceplat")
-        {
-            var barrel = contact.GetFixtureA().GetBody();
-            var dat = barrel.GetUserData();
-            if(dat.bounced != true)
-            {
-                dat.bounced = true;
-                contact.GetFixtureA().GetBody().ApplyImpulse(new b2Vec2(7,-14), contact.GetFixtureA().GetBody().GetWorldCenter());
-                barrel.SetUserData(dat);
-            }
-        }
+            bounceBarrel(contact.GetFixtureA().GetBody());
     else if(fixa == "bounceplat" && fixb == "barrel")
-        {
-            var barrel = contact.GetFixtureB().GetBody();
-            var dat = barrel.GetUserData();
-            if(dat.bounced != true)
-            {
-                dat.bounced = true;
-                contact.GetFixtureB().GetBody().ApplyImpulse(new b2Vec2(7,-14), contact.GetFixtureB().GetBody().GetWorldCenter());
-                barrel.SetUserData(dat);
-            }
-        }
+            bounceBarrel(contact.GetFixtureB().GetBody());
+}
+
+function bounceBarrel(barrelBody)
+{
+    var data = barrelBody.GetUserData();
+    if(data.bounced != true)
+    {
+        data.bounced = true;
+        barrelBody.ApplyImpulse(new b2Vec2(7,-14), barrelBody.GetWorldCenter());
+        barrelBody.SetUserData(data);
+    }
 }
 
 listener.PreSolve = function(contact, oldManifold) {
