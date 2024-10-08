@@ -1,6 +1,10 @@
 <?php
 require_once("error_handling.php");
 
+
+//TEMPORARY FOR TESTING
+$_SESSION['user'] = 1;
+
 function initializeDatabase()
 {
 	// Disables exceptions, errors can still be handled

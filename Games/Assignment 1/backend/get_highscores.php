@@ -2,9 +2,6 @@
 	session_start();
 	require "database.php";
 
-	if(!isset($SESSION['user']))
-		setErrorAndDie($ERROR_LOGGED_OUT);
-
 	$db = initializeDatabase();
 
 	$result = $db->query("SELECT `name`, `score` FROM `highscore` JOIN `user` ORDER BY `score` DESC LIMIT 5");

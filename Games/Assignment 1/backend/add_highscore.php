@@ -2,8 +2,8 @@
 	session_start();
 	require "database.php";
 	
-	// if(!isset($SESSION['user']))
-	// 	setErrorAndDie($ERROR_LOGGED_OUT);
+	 if(!isset($_SESSION['user']))
+	 	setErrorAndDie($ERROR_LOGGED_OUT);
 
 	//Validate score
 	if(!isset($_POST['score']))
