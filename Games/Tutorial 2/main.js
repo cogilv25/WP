@@ -12,17 +12,19 @@ var b2DebugDraw = Box2D.Dynamics.b2DebugDraw;
 
 //DEFINE Canvas and World
 
-class ropeProperties
+class ropeMaterial
 {
-    distanceBetweenNodes = 20;
+    distanceBetweenNodes = 20;// The distance between the nodes of the rope
+    tension = 0.1;            // Shortens the rope to put it under tension, max 1
 
-    nodeDensity = 0.5;
-    nodeFriction = 0.5;
-    nodeRestitution = 0.01;
-    nodeDamping = 0.1;
+    nodeRadius = 2;           // Radius of the nodes
+    nodeDensity = 0.5;        // Relative mass of nodes for their volume
+    nodeFriction = 0.5;       // Friction of nodes in contact with surfaces
+    nodeRestitution = 0.01;   // Node bounciness
+    nodeDamping = 0.2;        // Damping of node movement
 
-    jointFrequency = 30;
-    jointDampingRatio = 2;
+    jointFrequency = 30;      // Lower values are less stretchy, max 30
+    jointDampingRatio = 0.9;  // Damping of stretch behaviour
 }
 
 var WIDTH=800;
@@ -38,7 +40,7 @@ let clicking = false;
 var running = true;
 var won = false;
 var score = 1000;
-var scoreMoving = false;
+var gameStarted = false;
 var world = new b2World(
 new b2Vec2(0,9.81),
 true
@@ -70,11 +72,14 @@ defineNewDynamicCircle(1, 1, 0.5, 490, 245, 10, "food");
 
 var ropeJoints = [];
 var ropes = [
-    [food,anchor1,new ropeProperties()],
-    [food, anchor2, new ropeProperties()],
-    [food, anchor3, new ropeProperties()]
+    [food,anchor1,new ropeMaterial()],
+    [food, anchor2, new ropeMaterial()],
+    [food, anchor3, new ropeMaterial()]
 ];
 initializeRopes(ropes);
+
+let destroyList = [];
+
 
 /*
 Debug Draw
@@ -99,10 +104,28 @@ function update() {
 
     world.DrawDebugData();
     world.ClearForces();
+
+    for(var i in destroyList) {
+        // Get the bodies at either end of the joint
+        var b1 = destroyList[i].GetBodyA();
+        var b2 = destroyList[i].GetBodyB();
+
+        // Delete the joint
+        world.DestroyJoint(destroyList[i]);
+        if(!gameStarted) gameStarted = true;
+
+        // Delete bodies that are no longer attached to any other bodies
+        if(b1.GetJointList() == null && b1.GetUserData().id == "ropeNode") world.DestroyBody(b1);
+        if(b2.GetJointList() == null && b2.GetUserData().id == "ropeNode") world.DestroyBody(b2);
+    }
+    destroyList.length = 0;
         
     ctx.font = "32px Arial";
-    ctx.fillStyle = "#666";
-    ctx.fillText("Score: "+score,4,30);
+    ctx.fillStyle = "#606060";
+    ctx.fillText("Score: " + score,4,30);
+
+    if(gameStarted && score > 0)
+        score--;
 
     if(clicking)
     {
@@ -118,8 +141,6 @@ function update() {
         ctx.lineWidth = t;
     }
 
-    if(scoreMoving && score > 0)
-        score--;
 
     var pos = food.GetBody().GetPosition();
     if( pos.x * SCALE > 1000 || pos.x * SCALE < -200 || 
@@ -210,6 +231,10 @@ function defineNewRevoluteJoint(body1, body2)
     return world.CreateJoint(joint);
 }
 
+/**
+ * @param {object} body1 - Description
+ * 
+ */
 function defineNewDistanceJoint(body1, body2)
 {
     var joint = new Box2D.Dynamics.Joints.b2DistanceJointDef();
@@ -224,14 +249,24 @@ function initializeRopes(ropeList)
     {
         var a = ropeList[i][0].GetBody().GetPosition();
         var b = ropeList[i][1].GetBody().GetPosition();
-        var de = ropeList[i][2].nodeDensity;
-        var re = ropeList[i][2].nodeRestitution;
-        var fr = ropeList[i][2].nodeFriction;
-        var da = ropeList[i][2].nodeDamping;
+        var den = ropeList[i][2].nodeDensity;
+        var res = ropeList[i][2].nodeRestitution;
+        var fri = ropeList[i][2].nodeFriction;
+        var dam = ropeList[i][2].nodeDamping;
         var fq = ropeList[i][2].jointFrequency;
         var dar = ropeList[i][2].jointDampingRatio;
+        var ten = ropeList[i][2].tension;
+        var rad = ropeList[i][2].nodeRadius;
 
-        var nNodes = Math.floor((Math.sqrt((a.x-b.x)**2+(a.y-b.y)**2)*SCALE) / ropeList[i][2].distanceBetweenNodes);
+        var nNodes = Math.floor ( 
+            ( 
+                Math.sqrt(
+                    (a.x - b.x)**2 + (a.y - b.y) **2
+                ) 
+                * SCALE
+            ) 
+            / ropeList[i][2].distanceBetweenNodes
+        );
         console.log(nNodes);
         var xStep = ((a.x - b.x) / nNodes)* SCALE;
         var yStep = ((a.y - b.y) / nNodes)* SCALE;
@@ -240,19 +275,26 @@ function initializeRopes(ropeList)
         {
             var x = a.x * SCALE - ( xStep * j);
             var y = a.y * SCALE - ( yStep * j);
-            node = defineNewDynamicCircle(de, fr, re, x, y, 2, "ropeNode");
-            node.GetBody().SetLinearDamping(da);
+            node = defineNewDynamicCircle(den, fri, res, x, y, rad, "ropeNode");
+            node.GetBody().SetLinearDamping(dam);
             var joint;
             if(prevNode === false)
                 joint = defineNewDistanceJoint(ropeList[j][0],node);
             else
                 joint = defineNewDistanceJoint(prevNode,node);
+
             joint.SetFrequency(fq);
             joint.SetDampingRatio(dar);
+            joint.SetLength(joint.GetLength() * (1.0 - ten));
+
             ropeJoints.push(joint)
             prevNode = node;
         }
-            ropeJoints.push(defineNewDistanceJoint(prevNode,ropeList[i][1]));
+        var joint =  defineNewDistanceJoint(prevNode,ropeList[i][1]);
+        joint.SetFrequency(fq);
+        joint.SetDampingRatio(dar);
+        joint.SetLength(joint.GetLength() * (1.0 - ten));
+        ropeJoints.push(joint);
     }
 }
 
@@ -266,17 +308,7 @@ function cutRopeJointsWithLine(lx1, ly1, lx2, ly2)
                 p1.x * SCALE, p1.y * SCALE, p2.x * SCALE, p2.y * SCALE)
             )
         {
-            // Get the bodies at either end of the joint
-            var b1 = ropeJoints[i].GetBodyA();
-            var b2 = ropeJoints[i].GetBodyB();
-
-            // Delete the joint
-            world.DestroyJoint(ropeJoints[i]);
-            if(!scoreMoving) scoreMoving = true;
-
-            // Delete bodies that are no longer attached to any other bodies
-            if(b1.GetJointList() == null && b1.GetUserData().id != "food" && b1.GetUserData().id != "anchor") world.DestroyBody(b1);
-            if(b2.GetJointList() == null && b2.GetUserData().id != "food" && b2.GetUserData().id != "anchor") world.DestroyBody(b2);
+            destroyList.push(ropeJoints[i]);
         }
     }
 }
