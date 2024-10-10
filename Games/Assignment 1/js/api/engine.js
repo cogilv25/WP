@@ -192,11 +192,6 @@ var _engineInit = () =>
 
 var _engineUpdate = () =>
 {
-    _engineB2DWorld.Step(
-    1/60, // framerate
-    10, // velocity iterations
-    10 // position iterations
-    );
 
     for(i in _engineDeleteEntities)
     {
@@ -206,6 +201,11 @@ var _engineUpdate = () =>
     _engineRender(_engineContext);
     update();
 
+    _engineB2DWorld.Step(
+    1/60, // framerate
+    10, // velocity iterations
+    10 // position iterations
+    );
     window.requestAnimationFrame(_engineUpdate);
 }
 

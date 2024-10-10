@@ -20,7 +20,7 @@ var keyboardState = {
     down:  false
 };
 
-function initializeKeyboard(keyMap = exampleKeyMap)
+function initializeKeyboard(keyMap = exampleKeyMap, debugMode = false)
 {
     keyboardState = {};
     for(name of Object.keys(keyMap))
@@ -28,6 +28,8 @@ function initializeKeyboard(keyMap = exampleKeyMap)
 
     document.addEventListener("keydown", (e) =>
     {
+        if(debugMode)
+            console.log(e.keyCode + " Down");
         for(const [name, keys] of Object.entries(keyMap))
             for(var i = 0; i < keys.length; i++)
                 if(e.keyCode == keys[i])
@@ -36,6 +38,8 @@ function initializeKeyboard(keyMap = exampleKeyMap)
 
     document.addEventListener("keyup", (e) =>
     {
+        if(debugMode)
+            console.log(e.keyCode + " Up");
         for(const [name, keys] of Object.entries(keyMap))
             for(var i = 0; i < keys.length; i++)
                 if(e.keyCode == keys[i])
