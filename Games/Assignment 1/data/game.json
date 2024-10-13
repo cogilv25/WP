@@ -37,7 +37,8 @@
         },
 
         "grappleSpawn": {
-            "width": 10, "height": 30,
+            "width": 10,
+            "height": 30,
             "shape": "rect",
             "fixedRotation":true,
             "sensor": true,
@@ -47,6 +48,17 @@
         },
 
         "grapple": {
+            "width": 10,
+            "height": 36,
+            "shape": "rect",
+            "fixedRotation":true,
+            "sleepingAllowed": false,
+            "sensor": true,
+            "categories": 8,
+            "mask": 22
+        },
+
+        "grapple_tip": {
             "width": 10,
             "height": 36,
             "shape": "rect",

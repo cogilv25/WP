@@ -1,0 +1,11 @@
+{
+	"path": "assets/",
+	"manifest": [
+		{"src": "data/game.json", "id": "settings"},
+		{"src": "city%201/10.png", "id": "background"},
+		{"src": "balloon2.png", "id": "balloon"},
+		{"src": "man.png", "id": "hero"},
+		{"src": "grapple1.png", "id": "grapple"},
+		{"src": "grapple_tip.png", "id": "grapple_tip"}
+	]
+}

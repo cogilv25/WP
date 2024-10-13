@@ -30,7 +30,7 @@
             <div style="display: flex; flex-direction: row; justify-content: center;">
                 <div style="width: 800px; height: 600px;">
                     <canvas id="canvas" width="800" height="600" style="width: 100%; background-color: #f0f0f0; margin: 0px 0px 20px 0px;"></canvas>
-                    <canvas id="canvas-2" width="800" height="600" style="display:none; width: 100%; height: 100%; background-color: #f0f0f0;"></canvas>
+                    <canvas id="canvas2" width="800" height="600" style="width: 100%; height: 100%; background-color: #f0f0f0;"></canvas>
 
                 </div>
             </div>

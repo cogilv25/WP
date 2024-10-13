@@ -24,13 +24,34 @@ var initialize = () =>
 
 // Functions for game specific code to call into. this is the main
 // API that game-specific code should be calling into.
-
-function setEngineRenderMode(renderMode)
+// TODO: doesn't do anything..?
+// TODO: Refactor renderer, modes, and targets system
+function setEngineRenderModes(renderModes)
 {
-	if(_engineRenderModes[renderMode] == null)
-		console.error("Invalid render mode specified! Reverting change!");
+	if(!Array.isArray(renderModes))
+	{
+		renderModes = [renderModes];
+	}
 	else
-		_engineRender = _engineRenderModes[renderMode];
+	{
+		for(let i in renderModes)
+		{
+			if(i >= _engineRenderers.length)
+			{
+				console.error("Too many render modes submitted! Extra modes ignored");
+				return;
+			}
+			if(_engineRenderModes[renderModes[i]] == null) 
+				console.error("Invalid render mode specified! Submitted mode: " + renderModes[i]);
+			else
+				_engineRenderers[i] = _engineRenderModes[renderModes[i]];
+		}
+	}
+}
+
+function setEngineRenderTargets(renderTargets)
+{
+	//TODO
 }
 
 function setB2DContactListener(listener)
@@ -40,7 +61,7 @@ function setB2DContactListener(listener)
 
 function startGame()
 {
-	_engineStart();
+	_engineInit();
 }
 
 function getDefaultEntityProperties(createB2D = true, createEasel = true)
@@ -69,18 +90,30 @@ function getDefaultEntityProperties(createB2D = true, createEasel = true)
 
 	if(createEasel)
 	{
-		//TODO
+		props.easelType = "bitmap"
 	}
+
+	if(createEasel && createB2D)
+		props.linkB2DToEasel = true;
 	return props;
 }
 
-function createEntityProperties(sparseProperties, createB2D = true, createEasel = true)
+function createEntityProperties(sparseProperties, createB2D = true, createEasel = false)
 {
 	let props = getDefaultEntityProperties(createB2D, createEasel);
 
 	if(sparseProperties != null)
+	{
 		for(let key of Object.keys(sparseProperties))
 			props[key] = sparseProperties[key];
+		if(sparseProperties.type == "static")
+		{
+			if(sparseProperties.linkB2DToEasel == null)
+			{
+				props.linkB2DToEasel = false;
+			}
+		}
+	}
 
 	return props;
 }
@@ -95,7 +128,17 @@ function createEntity(properties = null)
 	if(properties.createB2D)
 		entity.b2d = _createB2DEntity(properties);
 	if(properties.createEasel)
+	{
 		entity.easel = _createEaselEntity(properties);
+		if(properties.createB2D && properties.linkB2DToEasel)
+			entity.engineID = _engineLinkedEntities
+	}
+
+	if(properties.linkB2DToEasel)
+	{
+		entity.engineId = _engineLinkedEntities.length;
+		_engineLinkedEntities.push(entity);
+	}
 
 	return entity;
 }
@@ -157,7 +200,7 @@ function defineNewDynamicCircle(density, friction, restitution, x, y, r, objid) 
 // externally but may be warranted where certain behaviours are
 // desired. You have been warned!
 
-var _engineContext = ctx;;
+var _engineContexts = [ctx, ctx2];
 var _engineRunning = true;
 var _engineRenderModes = 
 { 
@@ -166,12 +209,18 @@ var _engineRenderModes =
 	"none": _engineRenderNone
 };
 
+var _engineLinkedEntities = [];
+
 // B2D
 var _engineB2DWorld;
 var _engineB2DDebugDraw;
 var _engineB2DEntities = [];
 var _engineDeleteEntities = [];
 
+// Easel
+var _engineEaselStage;
+var _engineStageWidth, _engineStageHeight;
+var _engineLoader;
 
 // Internal functions, not intended to be called externally but may
 // be warranted where certain behaviours are desired. All functions
@@ -179,41 +228,54 @@ var _engineDeleteEntities = [];
 // if doing so.
 // You have been warned! Again!!!
 
-var _engineRender = (context) => 
-{
-	//Draw no renderer selected to screen.
-};
+var _engineRenderers = [ _engineRenderDebug, _engineRenderEasel ];
 
 var _engineInit = () =>
 {
-	_engineInitB2D(_engineContext);
 	_engineInitEasel();
+	_engineInitB2D(_engineContexts[0]);
 }
 
 var _engineUpdate = () =>
 {
-
+	//TODO: Some entities will be b2d or easel only
+	// - Sensors == b2d only
+	// - backgrounds == easel only
     for(i in _engineDeleteEntities)
     {
-		_engineB2DWorld.DestroyBody(_engineDeleteEntities[i].b2d.GetBody());
+    	let e = _engineDeleteEntities[i];
+    	if(e.b2d != null)
+			_engineB2DWorld.DestroyBody(e.b2d.GetBody());
+		if(e.easel != null)
+			_engineEaselStage.removeChild(e.easel);
     }
 
-    _engineRender(_engineContext);
-    update();
 
+    update();
     _engineB2DWorld.Step(
     1/60, // framerate
     10, // velocity iterations
     10 // position iterations
     );
-    window.requestAnimationFrame(_engineUpdate);
+
+    _engineUpdateLinkedEntities();
+
+    for(let i in _engineRenderers)
+    {
+    	_engineRenderers[i](_engineContexts[i]);
+    }
+
+
+    //window.requestAnimationFrame(_engineUpdate);
 }
 
 var _engineStart = () =>
 {
-	_engineInit();
 	initialize();
-	window.requestAnimationFrame(_engineUpdate);
+	//window.requestAnimationFrame(_engineUpdate);
+	createjs.Ticker.framerate = 60;
+	createjs.Ticker.timingMode = createjs.Ticker.RAF;
+	createjs.Ticker.addEventListener("tick", _engineUpdate);
 }
 
 // Static functions, these get assigned to an internal function to allow
@@ -241,15 +303,54 @@ function _engineInitB2D(context = null)
 	}
 }
 
+function _engineProcessAssets()
+{
+	//TODO: process loaded assets
+	//TODO: check main application is ready
+
+	//Loop through props and process each entity type
+	//props.ldrimg = loader.getResult(props.id)
+	let props = {
+		userData: {id: "background"},
+		x: 400, y: 300,
+		width: 800, height: 600,
+	};
+	_createEaselEntity(props);
+	_engineStart();
+}
+
 function _engineInitEasel()
 {
+	_engineEaselStage = new createjs.Stage(canvas2);
+	_engineEaselStage.snapPixelsEnabled = true;
+	_engineStageWidth = _engineEaselStage.canvas.width;
+	_engineStageHeight = _engineEaselStage.canvas.height;
 
+
+	_engineLoader = new createjs.LoadQueue();
+	_engineLoader.addEventListener("complete", _engineProcessAssets);
+	_engineLoader.loadManifest("data/assets.json");
+}
+
+function _engineUpdateLinkedEntities()
+{
+	for(let i in _engineLinkedEntities)
+	{
+		let e = _engineLinkedEntities[i];
+		let pos = e.b2d.GetBody().GetPosition();
+		let rot = e.b2d.GetBody().GetAngle() * 180 / Math.PI;
+		e.easel.x = pos.x * SCALE;
+		e.easel.y = pos.y * SCALE;
+		e.easel.rotation = rot;
+	}
 }
 
 function _engineRenderEasel(context)
 {
 	// Update easel transforms
 	// Draw Easel scene
+    //_engineEaselStage.update();
+    _engineEaselStage.draw(context);
 }
 
 function _engineRenderDebug(context)
@@ -299,15 +400,36 @@ function _createB2DEntity(props)
 
 function _createEaselEntity(props)
 {
-	//TODO
+	//TODO: populate props @ load time
+	//TODO: Sprite Sheets
+	if(props.easelType = "bitmap")
+	{
+		let image = new createjs.Bitmap(_engineLoader.getResult(props.userData.id));
+		if(props.shape == "rect")
+		{
+			image.scaleY = (props.height * 2) / image.image.naturalHeight;
+			image.scaleX = (props.width * 2) / image.image.naturalWidth;
+		}
+		else if(props.shape == "circle")
+		{
+			image.scaleY = (props.radius * 2) / image.image.naturalHeight;
+			image.scaleX = image.scaleY;
+		}
+		image.regX = image.image.width/2;
+		image.regY = image.image.height/2;
+		image.x = props.x;
+		image.y = props.y;
+		_engineEaselStage.addChild(image);
+		return image;
+	}
 }
 
 
 /** TODO:
  * ------------------------------------------------------------------------------------
  * 
- * - Support 2 contexts one easel one b2d.
- *     - Support an arbitrary number of contexts.
+ * - Support 2 contexts one easel one b2d. ✓
+ *     - Support an arbitrary number of contexts. ~
  * 
  * 
 */

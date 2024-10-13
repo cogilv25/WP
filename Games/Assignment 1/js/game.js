@@ -20,7 +20,7 @@ let rawDat;
 let testToggle = false;
 let balloonsFrozen = false;
 
-let score = 0, time = 1000;
+let score = 0, time = 100000;
 let ground, roof, lWall, rWall, ladderProps;
 let hero,platform,platform2, test;
 let breakablePlatforms = [];
@@ -52,7 +52,7 @@ let balloonsToPop = 1 + 2 + 4 + 8;
 initialize = () =>
 {
     setB2DContactListener(listener);
-    setEngineRenderMode("debug");
+    setEngineRenderModes("easel", "debug");
 
     let edgeProps = createEntityProperties({
         x:0, y: HEIGHT/2,
@@ -77,8 +77,8 @@ initialize = () =>
     edgeProps.userData = {id: "roof"};
     roof = createEntity(edgeProps);
 
-    spawnPlatform(400, 165, 200, 8);
-    spawnPlatform(400, 435, 200, 8, true);
+    // spawnPlatform(400, 165, 200, 8);
+    // spawnPlatform(400, 435, 200, 8, true);
 
     hero = createEntity(entityTypes['hero']);
 
@@ -92,7 +92,7 @@ initialize = () =>
         density:1, restitution: 1,
         categories: 4, mask: 65535 - 4,
         userData:{id:"balloon", stage: 3}
-    });
+    }, true, true);
     balloonProps[2] = structuredClone(balloonProps[3]);
     balloonProps[2].userData.stage = 2;
     balloonProps[2].radius /= 2;
@@ -103,7 +103,7 @@ initialize = () =>
     balloonProps[0].userData.stage = 0;
     balloonProps[0].radius /= 2;
 
-    spawnBalloon(400, 300, 8, 1, 3);
+    //spawnBalloon(400, 300, 8, 1, 3);
 
     // platform = defineNewStatic(0.5, 5, 1.02, -193, 250, 200, 8, 0, "plat");
     // platform2 = defineNewStatic(0.5, 0.5, 1.05, 600, 250, 300, 8, 0, "plat");
@@ -122,18 +122,22 @@ initialize = () =>
 function createGrappleSpawner(pos)
 {
     entityTypes['grappleSpawn'].x = pos.x * SCALE;
-    entityTypes['grappleSpawn'].y = pos.y * SCALE + 6; 
+    entityTypes['grappleSpawn'].y = pos.y * SCALE + entityTypes['grappleSpawn'].height * 1.25;
     grappleSpawner = createEntity(entityTypes['grappleSpawn']);
     entityTypes['grapple'].x = entityTypes['grappleSpawn'].x;
     entityTypes['grapple'].y = entityTypes['grappleSpawn'].y;
+    entityTypes['grapple_tip'].x = entityTypes['grappleSpawn'].x;
+    entityTypes['grapple_tip'].y = entityTypes['grappleSpawn'].y;
 }
 
-function spawnGrapple()
+function spawnGrapple(tip = false)
 {
-    grappleSections.push(createEntity(entityTypes['grapple']));
+    let name = tip ? "grapple_tip" : "grapple";
+    grappleSections.push(createEntity(entityTypes[name]));
     let section = grappleSections[grappleSections.length - 1].b2d.GetBody();
     section.ApplyForce(new b2Vec2(0,-GRAVITY * section.GetMass()),section.GetWorldCenter());
     section.SetLinearVelocity(new b2Vec2(0,-15));
+    grappleSections[grappleSections.length - 1].easel.scaleY = 1.05;
 }
 
 function spawnLadder(x, y, height)
@@ -383,7 +387,7 @@ update = () => {
         grappleDeploying = false;
         reEnableGrappleDeploying = true;
         createGrappleSpawner(hero.b2d.GetBody().GetPosition());
-        spawnGrapple();
+        spawnGrapple(true);
     }
     if(keyboardState.up == true && onLadder)
     {
@@ -430,7 +434,7 @@ update = () => {
 
 function fatalError()
 {
-
+d
 }
 
 function loadGameData(gameData)
@@ -440,8 +444,12 @@ function loadGameData(gameData)
         if(props.userData == null)
             props.userData = {"id": name};
         else       
-            props.userData.id = name; 
-        entityTypes[name] = createEntityProperties(props);
+            props.userData.id = name;
+
+        if(name == "hero" || name == "grapple" || name == "grapple_tip")
+            entityTypes[name] = createEntityProperties(props, true, true);
+        else
+            entityTypes[name] = createEntityProperties(props);
     }
 }
 
@@ -528,7 +536,7 @@ listener.BeginContact = function(contact)
         if(!shielded)
             shielded = true;
     }
-    else if((fixa=="grapple" && fixb == "roof") || (fixa=="roof" && fixb=="grapple"))
+    else if((fixa=="grapple_tip" && fixb == "roof") || (fixa=="roof" && fixb=="grapple_tip"))
     {
         if(grappleDeploying)
         {
@@ -540,7 +548,7 @@ listener.BeginContact = function(contact)
         }
         //grappleSections[0].SetLinearVelocity(new b2Vec2(0,0));
     }
-    else if((fixa=="grapple" && fixb == "platform") || (fixa=="roof" && fixb=="platform"))
+    else if((fixa=="grapple_tip" && fixb == "platform") || (fixa=="platform" && fixb=="grapple_tip"))
     {
         if(grappleDeploying)
         {
@@ -559,7 +567,7 @@ listener.BeginContact = function(contact)
             }
         }
     }
-    else if(fixa == "balloon" && (fixb == "grapple" || fixb == "grappleSpawn"))
+    else if(fixa == "balloon" && (fixb == "grapple" || fixb == "grappleSpawn" || fixb == "grapple_tip"))
     {
         if(!despawnGrappleFlag)
         {
@@ -568,7 +576,7 @@ listener.BeginContact = function(contact)
             despawnGrappleFlag = true;
         }
     }
-    else if((fixa == "grapple" || fixa == "grappleSpawn") && fixb == "balloon")
+    else if((fixa == "grapple" || fixa == "grappleSpawn" || fixa == "grapple_tip") && fixb == "balloon")
     {
         if(!despawnGrappleFlag)
         {
@@ -613,8 +621,8 @@ listener.EndContact = function(contact)
         let hB = hero.b2d.GetBody();
         hB.ApplyForce(new b2Vec2(0, GRAVITY * hB.GetMass()), hB.GetWorldCenter());
     }
-    else if( (fixa == "grappleSpawn" && fixb == "grapple") ||
-        (fixa == "grapple" && fixb == "grappleSpawn") )
+    else if( (fixa == "grappleSpawn" && (fixb == "grapple"|| fixb == "grapple_tip")) ||
+        ((fixa == "grapple"  || fixa == "grapple_tip") && fixb == "grappleSpawn") )
     {
         if(grappleDeploying)
         {
