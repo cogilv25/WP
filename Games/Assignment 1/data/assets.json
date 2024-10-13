@@ -2,10 +2,18 @@
 	"path": "assets/",
 	"manifest": [
 		{"src": "data/game.json", "id": "settings"},
+		{"src": "data/assets.json", "id": "metadata"},
 		{"src": "city%201/10.png", "id": "background"},
 		{"src": "balloon2.png", "id": "balloon"},
 		{"src": "man.png", "id": "hero"},
 		{"src": "grapple1.png", "id": "grapple"},
-		{"src": "grapple_tip.png", "id": "grapple_tip"}
+		{"src": "grapple_tip.png", "id": "grapple_tip"},
+		{"src": "hero/Idle.png", "id": "testIdle"},
+		{"src": "hero/Run.png", "id": "testWalk"},
+		{"src": "wall.png", "id": "ground"},
+		{"src": "wall.png", "id": "roof"},
+		{"src": "wall.png", "id": "edge"},
+		{"src": "ladder.png", "id": "ladder"},
+		{"src": "shield.png", "id": "item"}
 	]
 }

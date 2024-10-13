@@ -15,20 +15,22 @@ var BALLOON_SIZES = 4;
 GRAVITY = 18;
 
 let entityTypes = [];
+var assetMetaData = [];
 let rawDat;
 
 let testToggle = false;
 let balloonsFrozen = false;
 
-let score = 0, time = 100000;
+let score = 0, time = 1000;
 let ground, roof, lWall, rWall, ladderProps;
 let hero,platform,platform2, test;
 let breakablePlatforms = [];
 
 let playerDead = false, lives = 3;
 let shielded = false;
-let onLadder = false;
+let onLadder = 0, ladderForceApplied = false;
 let waitingForGameData = true;
+let playerScale, heroMovingLeft = false, heroMovingRight = false;
 
 let itemProps, crabProps;
 let item, crab;
@@ -63,34 +65,31 @@ initialize = () =>
     })
 
     
-    lWall = createEntity(edgeProps);
-    edgeProps.x = WIDTH;
-    rWall = createEntity(edgeProps);
-    edgeProps.height = 8;
-    edgeProps.x = WIDTH / 2;
-    edgeProps.width = WIDTH/2;
-    edgeProps.userData = {id: "ground"};
-    edgeProps.y = HEIGHT;
-    ground = createEntity(edgeProps);
-    edgeProps.y = 0;
-    edgeProps.categories += 2;
-    edgeProps.userData = {id: "roof"};
-    roof = createEntity(edgeProps);
+    lWall = createEntity(entityTypes['edge']);
+    entityTypes['edge'].x = WIDTH;
+    rWall = createEntity(entityTypes['edge']);
+    ground = createEntity(entityTypes['ground']);
+    roof = createEntity(entityTypes['roof']);
 
     // spawnPlatform(400, 165, 200, 8);
     // spawnPlatform(400, 435, 200, 8, true);
 
+    let test = createEntity(entityTypes['spriteTest']);
+    test.easel.gotoAndPlay("walk");
+
     hero = createEntity(entityTypes['hero']);
+    playerScale = hero.easel.scaleX;
 
     item = spawnItem(300,300,"shield");
 
-    spawnLadder(300,500,50);
+    spawnLadder(300,500,4);
 
     balloonProps[3] = createEntityProperties(
     {
         radius:72, friction: 0,
         density:1, restitution: 1,
         categories: 4, mask: 65535 - 4,
+        createEasel: true, linkB2DToEasel: true,
         userData:{id:"balloon", stage: 3}
     }, true, true);
     balloonProps[2] = structuredClone(balloonProps[3]);
@@ -103,7 +102,7 @@ initialize = () =>
     balloonProps[0].userData.stage = 0;
     balloonProps[0].radius /= 2;
 
-    //spawnBalloon(400, 300, 8, 1, 3);
+    spawnBalloon(400, 300, 8, 1, 3);
 
     // platform = defineNewStatic(0.5, 5, 1.02, -193, 250, 200, 8, 0, "plat");
     // platform2 = defineNewStatic(0.5, 0.5, 1.05, 600, 250, 300, 8, 0, "plat");
@@ -137,15 +136,17 @@ function spawnGrapple(tip = false)
     let section = grappleSections[grappleSections.length - 1].b2d.GetBody();
     section.ApplyForce(new b2Vec2(0,-GRAVITY * section.GetMass()),section.GetWorldCenter());
     section.SetLinearVelocity(new b2Vec2(0,-15));
-    grappleSections[grappleSections.length - 1].easel.scaleY = 1.05;
 }
 
-function spawnLadder(x, y, height)
+function spawnLadder(x, y, sections)
 {
     entityTypes['ladder'].x = x;
     entityTypes['ladder'].y = y;
-    entityTypes['ladder'].height = height;
-    createEntity(entityTypes['ladder']);
+    for(let i = 0; i < sections; i++)
+    {
+        createEntity(entityTypes['ladder']);
+        entityTypes['ladder'].y -= entityTypes['ladder'].height;
+    }
 }
 
 function spawnItem(x, y, variant)
@@ -191,6 +192,7 @@ function freezeBalloons()
 {
     let oldGrav = GRAVITY;
     GRAVITY = 0;
+    balloonsFrozen = true;
     _engineB2DWorld.SetGravity(new b2Vec2(0,GRAVITY));
     for(i in balloons)
     {
@@ -223,7 +225,8 @@ function spawnBalloon(x, y, impx, impy, stage)
     let tB = balloons[balloons.length-1].b2d.GetBody();
     let mass = tB.GetMass();
     tB.SetPosition(new b2Vec2(x/SCALE, y/SCALE));
-    tB.ApplyImpulse(new b2Vec2(impx * mass, impy * mass), tB.GetWorldCenter());
+    if(!balloonsFrozen)
+        tB.ApplyImpulse(new b2Vec2(impx * mass, impy * mass), tB.GetWorldCenter());
 }
 
 function spawnQueuedBalloons()
@@ -325,6 +328,22 @@ update = () => {
 
     time -=0.4;
 
+    if(onLadder > 0)
+    {
+        if(!ladderForceApplied)
+        {
+            let hB = hero.b2d.GetBody();
+            hB.ApplyForce(new b2Vec2(0,-GRAVITY* hB.GetMass()), hB.GetWorldCenter());
+            ladderForceApplied = true;
+        }
+    }
+    else if(ladderForceApplied)
+    {
+        let hB = hero.b2d.GetBody();
+        hB.ApplyForce(new b2Vec2(0,GRAVITY* hB.GetMass()), hB.GetWorldCenter());
+        ladderForceApplied = false;
+    }
+
     if(balloonsToPop == 0)
     {
         nextLevel();
@@ -367,6 +386,13 @@ update = () => {
     if(keyboardState.right == true)
     {
         movHor = true;
+        if(!heroMovingRight)
+        {
+            heroMovingRight = true;
+            heroMovingLeft = false;
+            hero.easel.scaleX = playerScale;
+            hero.easel.gotoAndPlay("walk");
+        }
         ctx.fillText("D",774,60);
         let vel = hero.b2d.GetBody().GetLinearVelocity();
         vel.x = Math.min(vel.x + 2, 10);
@@ -375,6 +401,13 @@ update = () => {
     if(keyboardState.left == true)
     {
         movHor = true;
+        if(!heroMovingLeft)
+        {
+            heroMovingLeft = true;
+            heroMovingRight = false;
+            hero.easel.scaleX = -playerScale;
+            hero.easel.gotoAndPlay("walk");
+        }
         ctx.fillText("A",714,60);
         let vel = hero.b2d.GetBody().GetLinearVelocity();
         vel.x = Math.max(vel.x - 2, -10);
@@ -389,7 +422,7 @@ update = () => {
         createGrappleSpawner(hero.b2d.GetBody().GetPosition());
         spawnGrapple(true);
     }
-    if(keyboardState.up == true && onLadder)
+    if(keyboardState.up == true && onLadder > 0)
     {
         movVer = true;
         let hB = hero.b2d.GetBody();
@@ -397,7 +430,7 @@ update = () => {
         if(vel > -5)
             hB.ApplyImpulse(new b2Vec2(0,-0.6),hB.GetWorldCenter());
     }
-    if(keyboardState.down == true && onLadder)
+    if(keyboardState.down == true && onLadder > 0)
     {
         movVer = true;
         let hB = hero.b2d.GetBody();
@@ -410,8 +443,13 @@ update = () => {
         let vel = hero.b2d.GetBody().GetLinearVelocity();
 
         if(!movHor)
+        {
+            heroMovingLeft = false;
+            heroMovingRight = false;
             vel.x = 0;
-        if(!movVer && onLadder)
+            hero.easel.gotoAndPlay("idle");
+        }
+        if(!movVer && onLadder > 0)
             vel.y = 0;
 
         hero.b2d.GetBody().SetLinearVelocity(vel);
@@ -434,11 +472,16 @@ update = () => {
 
 function fatalError()
 {
-d
+    //TODO
 }
 
 function loadGameData(gameData)
 {
+    for( const [name, metadata] of Object.entries(gameData.assetMetaData))
+    {
+        assetMetaData[name] = metadata;
+    }
+
     for( const [name, props] of Object.entries(gameData.entityTypes))
     {
         if(props.userData == null)
@@ -446,10 +489,8 @@ function loadGameData(gameData)
         else       
             props.userData.id = name;
 
-        if(name == "hero" || name == "grapple" || name == "grapple_tip")
-            entityTypes[name] = createEntityProperties(props, true, true);
-        else
-            entityTypes[name] = createEntityProperties(props);
+        
+        entityTypes[name] = createEntityProperties(props);
     }
 }
 
@@ -526,9 +567,7 @@ listener.BeginContact = function(contact)
 
     if((fixa=="ladder" && fixb == "hero") || (fixa=="hero" && fixb=="ladder"))
     {
-        onLadder = true;
-        let hB = hero.b2d.GetBody();
-        hB.ApplyForce(new b2Vec2(0,-GRAVITY* hB.GetMass()), hB.GetWorldCenter());
+        ++onLadder;
     }
     else if((fixa=="item" && fixb == "hero") || (fixa=="hero" && fixb=="item"))
     {
@@ -617,9 +656,7 @@ listener.EndContact = function(contact)
     let fixb = contact.GetFixtureB().GetBody().GetUserData().id;
     if((fixa=="ladder" && fixb == "hero") || (fixa=="hero" && fixb=="ladder"))
     {
-        onLadder = false;
-        let hB = hero.b2d.GetBody();
-        hB.ApplyForce(new b2Vec2(0, GRAVITY * hB.GetMass()), hB.GetWorldCenter());
+        --onLadder;
     }
     else if( (fixa == "grappleSpawn" && (fixb == "grapple"|| fixb == "grapple_tip")) ||
         ((fixa == "grapple"  || fixa == "grapple_tip") && fixb == "grappleSpawn") )

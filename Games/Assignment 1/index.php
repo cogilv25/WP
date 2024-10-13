@@ -22,7 +22,7 @@
             Pang
         </title>
     </head>
-    <body>
+    <body style="background-color: #aaa;">
         <div style="display: flex; flex-direction: column; justify-content: space-around;">
             <div style="display: flex; flex-direction: row; justify-content: center;">
                 <h1>Pang!</h1>

@@ -64,43 +64,35 @@ function startGame()
 	_engineInit();
 }
 
-function getDefaultEntityProperties(createB2D = true, createEasel = true)
+function getDefaultEntityProperties()
 {
 	let props = { 
 		x: 0, y: 0, width: 10, height: 10, radius: 10,
 		rotation: 0, shape: "circle", type: "dynamic",
-		"createB2D": createB2D, "createEasel": createEasel
+		"createB2D": true, "createEasel": false
 	};
+	props.density = 0.5;
+	props.friction = 0.5;
+	props.restitution = 0.5;
+	props.linearDamping = 0;
+	props.sensor = false;
+	props.sleepingAllowed = true;
+	props.fixedRotation = false;
+	props.userData = {};
+	props.categories = 1;
+	props.mask = 65535;
+	props.group = 0;
+	props.easelType = "bitmap";
+	props.scaleX = 1;
+	props.scaleY = 1;
+	props.linkB2DToEasel = false;
 
-
-	if(createB2D)
-	{
-		props.density = 0.5;
-		props.friction = 0.5;
-		props.restitution = 0.5;
-		props.linearDamping = 0;
-		props.sensor = false;
-		props.sleepingAllowed = true;
-		props.fixedRotation = false;
-		props.userData = {};
-		props.categories = 1;
-		props.mask = 65535;
-		props.group = 0;
-	}
-
-	if(createEasel)
-	{
-		props.easelType = "bitmap"
-	}
-
-	if(createEasel && createB2D)
-		props.linkB2DToEasel = true;
 	return props;
 }
 
-function createEntityProperties(sparseProperties, createB2D = true, createEasel = false)
+function createEntityProperties(sparseProperties)
 {
-	let props = getDefaultEntityProperties(createB2D, createEasel);
+	let props = getDefaultEntityProperties();
 
 	if(sparseProperties != null)
 	{
@@ -130,13 +122,11 @@ function createEntity(properties = null)
 	if(properties.createEasel)
 	{
 		entity.easel = _createEaselEntity(properties);
-		if(properties.createB2D && properties.linkB2DToEasel)
-			entity.engineID = _engineLinkedEntities
 	}
 
 	if(properties.linkB2DToEasel)
 	{
-		entity.engineId = _engineLinkedEntities.length;
+		entity.engneId = _engineLinkedEntities.length;
 		_engineLinkedEntities.push(entity);
 	}
 
@@ -243,12 +233,23 @@ var _engineUpdate = () =>
 	// - backgrounds == easel only
     for(i in _engineDeleteEntities)
     {
+		// debugger;
     	let e = _engineDeleteEntities[i];
     	if(e.b2d != null)
 			_engineB2DWorld.DestroyBody(e.b2d.GetBody());
 		if(e.easel != null)
 			_engineEaselStage.removeChild(e.easel);
+		if(e.engineId != null)
+		{
+			let j = e.engineId;
+			_engineLinkedEntities.splice(j, 1);
+			for(; j < _engineLinkedEntities.length; j++)
+			{
+				--_engineLinkedEntities[j].engineId;
+			}
+		}
     }
+    _engineDeleteEntities = [];
 
 
     update();
@@ -313,7 +314,11 @@ function _engineProcessAssets()
 	let props = {
 		userData: {id: "background"},
 		x: 400, y: 300,
-		width: 800, height: 600,
+		shape: "rect",
+		width: 400, height: 300,
+		scaleX: 1,
+		scaleY: 1,
+		easelType: "bitmap"
 	};
 	_createEaselEntity(props);
 	_engineStart();
@@ -350,7 +355,7 @@ function _engineRenderEasel(context)
 	// Update easel transforms
 	// Draw Easel scene
     //_engineEaselStage.update();
-    _engineEaselStage.draw(context);
+    _engineEaselStage.update();
 }
 
 function _engineRenderDebug(context)
@@ -373,6 +378,7 @@ function _createB2DEntity(props)
     bodyDef.type = props.type == "dynamic" ? b2Body.b2_dynamicBody : b2Body.b2_staticBody;
     bodyDef.position.x = props.x / SCALE;
     bodyDef.position.y = props.y / SCALE;
+    bodyDef.angle = (props.rotation / 180) * Math.PI;
     switch(props.shape)
     {
     	case "circle":
@@ -402,18 +408,20 @@ function _createEaselEntity(props)
 {
 	//TODO: populate props @ load time
 	//TODO: Sprite Sheets
-	if(props.easelType = "bitmap")
+	//TODO: Seperate initialization of easel objects from linking to entities <- Can't
+	if(props.easelType == "bitmap")
 	{
 		let image = new createjs.Bitmap(_engineLoader.getResult(props.userData.id));
 		if(props.shape == "rect")
 		{
-			image.scaleY = (props.height * 2) / image.image.naturalHeight;
-			image.scaleX = (props.width * 2) / image.image.naturalWidth;
+			image.scaleY = ((props.height * 2) / image.image.naturalHeight) * props.scaleY;
+			image.scaleX = ((props.width * 2) / image.image.naturalWidth) * props.scaleX;
 		}
 		else if(props.shape == "circle")
 		{
-			image.scaleY = (props.radius * 2) / image.image.naturalHeight;
-			image.scaleX = image.scaleY;
+			let oScale = (props.radius * 2) / image.image.naturalHeight;
+			image.scaleY = oScale * props.scaleX;
+			image.scaleX = oScale * props.scaleY;
 		}
 		image.regX = image.image.width/2;
 		image.regY = image.image.height/2;
@@ -421,6 +429,39 @@ function _createEaselEntity(props)
 		image.y = props.y;
 		_engineEaselStage.addChild(image);
 		return image;
+	}
+	else if(props.easelType == "spritesheet")
+	{
+		let meta = assetMetaData[props.userData.id];
+		for(let i in meta.images)
+		{
+			meta.images[i] = _engineLoader.getResult(meta.images[i]);
+		}
+		console.log(meta);
+		let spritesheet = new createjs.SpriteSheet(meta);
+		let entity = new createjs.Sprite(spritesheet, "idle");
+		entity.x = props.x;
+		entity.y = props.y;
+		entity.scaleX = props.scaleX;
+		entity.scaleY = props.scaleY;
+
+		_engineEaselStage.addChild(entity);
+		return entity;
+	}
+	else if(props.easelType == "bitmapTile")
+	{
+		let rect = new createjs.Shape();
+		rect.graphics.beginBitmapFill(
+			_engineLoader.getResult(props.userData.id)
+		).drawRect(props.x,props.y,props.width*2,props.height*2)
+		//TODO: should be asset metadata
+		rect.tileW = props.tileWidth;
+		rect.tileH = props.tileHeight;
+		rect.regX = props.width;
+		rect.regY = props.height;
+		rect.snapToPixel = true; // <- Required..?
+		_engineEaselStage.addChild(rect);
+		return rect;
 	}
 }
 

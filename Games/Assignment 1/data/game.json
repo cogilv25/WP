@@ -1,15 +1,66 @@
 {
     "entityTypes": {
+        "edge": {
+            "x":0,
+            "y": 300,
+            "width": 8,
+            "height": 300,
+            "type": "static",
+            "shape": "rect",
+            "density": 0.01,
+            "restitution": 0.3,
+            "createEasel": true,
+            "easelType": "bitmapTile",
+            "tileWidth": 32,
+            "tileHeight": 32
+        },
+
+        "ground": {
+            "x":400,
+            "y": 600,
+            "width": 400,
+            "height": 72,
+            "type": "static",
+            "shape": "rect",
+            "density": 0.01,
+            "restitution": 0.3,
+            "createEasel": true,
+            "easelType": "bitmapTile",
+            "tileWidth": 32,
+            "tileHeight": 32
+        },
+
+        "roof": {
+            "x":400,
+            "y": 0,
+            "width": 400,
+            "height": 8,
+            "type": "static",
+            "shape": "rect",
+            "density": 0.01,
+            "restitution": 0.3,
+            "categories": 3,
+            "createEasel": true,
+            "easelType": "bitmapTile",
+            "tileWidth": 32,
+            "tileHeight": 32
+        },
+
         "hero": {
             "x": 400,
-            "y":550,
+            "y":500,
             "width": 20,
             "height": 40,
             "shape": "rect",
             "density": 0.2,
             "fixedRotation": true,
             "sleepingAllowed": false,
-            "mask": 65527
+            "mask": 65527,
+            "createEasel": true,
+            "linkB2DToEasel" : true,
+            "easelType": "spritesheet",
+            "scaleX": 1.5,
+            "scaleY": 1.5
         },
 
         "platform": {
@@ -33,7 +84,9 @@
             "width":14,
             "height": 14,
             "shape": "rect",
-            "mask": 1
+            "mask": 1,
+            "createEasel": true,
+            "linkB2DToEasel": true
         },
 
         "grappleSpawn": {
@@ -55,7 +108,10 @@
             "sleepingAllowed": false,
             "sensor": true,
             "categories": 8,
-            "mask": 22
+            "mask": 22,
+            "createEasel": true,
+            "linkB2DToEasel" : true,
+            "scaleY": 1.045
         },
 
         "grapple_tip": {
@@ -66,16 +122,60 @@
             "sleepingAllowed": false,
             "sensor": true,
             "categories": 8,
-            "mask": 22
+            "mask": 22,
+            "createEasel": true,
+            "linkB2DToEasel" : true,
+            "d" : true,
+            "scaleY": 1.045
         },
 
         "ladder": {
             "width": 20,
+            "height": 20,
             "shape": "rect",
             "sensor": true,
             "type": "static",
             "categories": 2,
-            "mask": 33
+            "mask": 33,
+            "createEasel": true
+        },
+
+        "spriteTest": {
+            "width": 128,
+            "height": 128,
+            "x": 400,"y": 128,
+            "shape": "rect",
+            "type": "static",
+            "createEasel": true,
+            "easelType": "spritesheet",
+            "mask": 0
+        }
+    },
+
+    "assetMetaData": {
+        "spriteTest": {
+            "images": [ "testWalk", "testIdle" ],
+            "frames": {
+                "regX": 64, "regY": 33,
+                "width": 128, "height": 128,
+                "scale":1.5
+            },
+            "animations": {
+                "walk":[0, 5, "walk", 0.15],
+                "idle":[6, 12, "idle",0.12]
+            }
+        },
+
+        "hero": {
+            "images": [ "testWalk", "testIdle" ],
+            "frames": {
+                "regX": 64, "regY": 105,
+                "width": 128, "height": 128
+            },
+            "animations": {
+                "walk":[0, 5, "walk", 0.15],
+                "idle":[6, 12, "idle",0.13]
+            }
         }
     }
 }
