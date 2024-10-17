@@ -13,10 +13,15 @@ var SCORE_BASE = 200;
 var BALLOON_BASE_SIZE = 9;
 var BALLOON_SIZES = 4;
 GRAVITY = 18;
+let loadedLevels = [];
+let currentLevel = 0;
+let levelNeedsInitialised = true;
+let gameReady = false;
 
 let entityTypes = [];
 var assetMetaData = [];
 let rawDat;
+let levelLoadQueueStore, levelLoadQueueImmediate;
 
 let testToggle = false;
 let balloonsFrozen = false;
@@ -37,11 +42,11 @@ let item, crab;
 
 let despawnGrappleFlag = false, grappleSpawning = false;
 let grappleSections = [], grappleDeploying = false;
-let grappleSpawnerProps, grappleSpawner, grappleSpawnFlag = false;
+let grappleSpawnerProps, grappleSpawner = {deleted:true}, grappleSpawnFlag = false;
 let reEnableGrappleDeploying = false;
 
 let delayBalloonSpawn = false;
-let balloonProps = [];
+// let entityTypes['balloon'] = [];
 let balloons = [];
 let balloonQueue = [];
 let balloonSizes = [BALLOON_BASE_SIZE];
@@ -56,56 +61,17 @@ initialize = () =>
     setB2DContactListener(listener);
     setEngineRenderModes("easel", "debug");
 
-    let edgeProps = createEntityProperties({
-        x:0, y: HEIGHT/2,
-        width: 8, height: HEIGHT/2,
-        type: "static", shape: "rect",
-        density: 0.01, restitution: 0.3,
-        userData: {id: "edge"}
-    })
-
     
-    lWall = createEntity(entityTypes['edge']);
-    entityTypes['edge'].x = WIDTH;
-    rWall = createEntity(entityTypes['edge']);
-    ground = createEntity(entityTypes['ground']);
-    roof = createEntity(entityTypes['roof']);
-
-    // spawnPlatform(400, 165, 200, 8);
-    // spawnPlatform(400, 435, 200, 8, true);
-
-    let test = createEntity(entityTypes['spriteTest']);
-    test.easel.gotoAndPlay("walk");
-
-    hero = createEntity(entityTypes['hero']);
-    playerScale = hero.easel.scaleX;
-
-    item = spawnItem(300,300,"shield");
-
-    spawnLadder(300,500,4);
-
-    balloonProps[3] = createEntityProperties(
+    if(loadedLevels[currentLevel] != null)
     {
-        radius:72, friction: 0,
-        density:1, restitution: 1,
-        categories: 4, mask: 65535 - 4,
-        createEasel: true, linkB2DToEasel: true,
-        userData:{id:"balloon", stage: 3}
-    }, true, true);
-    balloonProps[2] = structuredClone(balloonProps[3]);
-    balloonProps[2].userData.stage = 2;
-    balloonProps[2].radius /= 2;
-    balloonProps[1] = structuredClone(balloonProps[2]);
-    balloonProps[1].userData.stage = 1;
-    balloonProps[1].radius /= 2;
-    balloonProps[0] = structuredClone(balloonProps[1]);
-    balloonProps[0].userData.stage = 0;
-    balloonProps[0].radius /= 2;
+        initLevel(loadedLevels[currentLevel]);
+        levelNeedsInitialised = false;
+        gameReady = true;
+    }
 
-    spawnBalloon(400, 300, 8, 1, 3);
-
-    // platform = defineNewStatic(0.5, 5, 1.02, -193, 250, 200, 8, 0, "plat");
-    // platform2 = defineNewStatic(0.5, 0.5, 1.05, 600, 250, 300, 8, 0, "plat");
+    //TODO: Items need some changes to work with levels
+    //TODO: factor this out somewhere... probably asset metadata
+    playerScale = 1.5;
 
     initializeKeyboard(
         {
@@ -118,11 +84,129 @@ initialize = () =>
     );
 };
 
+function initLevel(levelData)
+{
+    //TODO:
+    // Init Assets
+    // for each asset
+    //     globalAssets["id"] = asset;
+
+    // Spawn Entities
+    lWall = createEntity(entityTypes['edge']);
+    entityTypes['edge'].x = WIDTH;
+    rWall = createEntity(entityTypes['edge']);
+    ground = createEntity(entityTypes['ground']);
+    roof = createEntity(entityTypes['roof']);
+
+    for(let i = 0; i < levelData.entities.length; ++i)
+    {
+        let e = levelData.entities[i];
+        if(e.type == "platform")
+        {
+            spawnPlatform(e.x, e.y, e.width, e.height, e.rotation, e.breaks);
+        }
+        else if(e.type == "ladder")
+        {
+            spawnLadder(e.x, e.y, e.sections);
+        }
+        else if(e.type == "balloon")
+        {
+            spawnBalloon(e.x, e.y, e.impX, e.impY, e.stage);
+        }
+        else if(e.type == "hero")
+        {
+            entityTypes['hero'].x = e.x;
+            entityTypes['hero'].y = e.y;
+            hero = createEntity(entityTypes['hero']);
+        }
+    }
+}
+
+function parseLevel(levelData)
+{
+    if(levelData == false)
+        return false;
+
+    let level = {assets:[]};
+    for(let i = 1; i < levelData.length; ++i)
+    {
+        if(levelData[i].item.id == "level")
+        {
+            for(const [key, value] of Object.entries(levelData[i].result))
+            {
+                level[key] = structuredClone(value);
+            }
+        }
+        else
+        {
+            level.assets[levelData[i].item.id] = levelData[i].result;
+        }
+    }
+
+    // Entity Pre-Process
+    level.balloonsToPop = 0;
+    for(let i = 0; i < level.entities.length; ++i)
+    {
+        let e = level.entities[i];
+        if(e.type == "balloon")
+        {
+            level.balloonsToPop += (2 ** (e.stage + 1)) - 1;
+        }
+    }
+
+    //Save to loaded Levels
+    if(level.ID != null)
+        loadedLevels[level.ID] = level;
+
+
+
+    return level;
+}
+
+function parseAndInitLevel(levelData)
+{
+    let level = parseLevel(levelData);
+
+    if( level == false)
+        return false;
+
+    initLevel(level);
+    return true;
+}
+
+function isLevelLoaded(level)
+{
+    return (!(loadedLevels[level] == null));
+}
+
+function loadLevel(level)
+{
+    if(isLevelLoaded(level))
+    {
+        initLevel(loadedLevels[level]);
+        return;
+    }
+
+    blockedLoadingLevel = true;
+    levelLoadQueueImmediate.loadManifest(
+        "/assets/levels/" + level + "/manifest.json", parseLevel);
+}
+
+function fetchAndStoreLevel(level)
+{
+    if(isLevelLoaded(level))
+        return;
+
+    levelLoadQueueStore.loadManifest(
+        "/assets/levels/" + level + "/manifest.json", parseLevel);
+}
+
 function createGrappleSpawner(pos)
 {
     entityTypes['grappleSpawn'].x = pos.x * SCALE;
     entityTypes['grappleSpawn'].y = pos.y * SCALE + entityTypes['grappleSpawn'].height * 1.25;
     grappleSpawner = createEntity(entityTypes['grappleSpawn']);
+    grappleSpawner.deleted = false;
     entityTypes['grapple'].x = entityTypes['grappleSpawn'].x;
     entityTypes['grapple'].y = entityTypes['grappleSpawn'].y;
     entityTypes['grapple_tip'].x = entityTypes['grappleSpawn'].x;
@@ -145,7 +229,7 @@ function spawnLadder(x, y, sections)
     for(let i = 0; i < sections; i++)
     {
         createEntity(entityTypes['ladder']);
-        entityTypes['ladder'].y -= entityTypes['ladder'].height;
+        entityTypes['ladder'].y -= entityTypes['ladder'].height*1.1;
     }
 }
 
@@ -157,7 +241,7 @@ function spawnItem(x, y, variant)
     return createEntity(entityTypes['item']);
 }
 
-function spawnPlatform(x, y, width, height, breakable = false)
+function spawnPlatform(x, y, width, height, rotation, breakable = false)
 {
     let props = entityTypes["platform"];
     if(breakable)
@@ -168,6 +252,8 @@ function spawnPlatform(x, y, width, height, breakable = false)
     props.x = x;
     props.y = y;
     props.width = width;
+    props.height = height;
+    props.rotation = rotation;
     if(breakable)
         breakablePlatforms.push(createEntity(props));
     else
@@ -217,10 +303,17 @@ function slowBalloons()
     }
 }
 
+function spawnHero(x, y)
+{
+    entityTypes['hero'].x = x;
+    entityTypes['hero'].y = y;
+    hero = createEntity(entityTypes['hero']);
+}
+
 function spawnBalloon(x, y, impx, impy, stage)
 {
-    balloonProps[stage].userData.index = balloons.length;
-    balloons[balloons.length] = createEntity(structuredClone(balloonProps[stage]));
+    entityTypes['balloon'][stage].userData.index = balloons.length;
+    balloons[balloons.length] = createEntity(structuredClone(entityTypes['balloon'][stage]));
     balloons[balloons.length-1].deleted = false;
     let tB = balloons[balloons.length-1].b2d.GetBody();
     let mass = tB.GetMass();
@@ -268,8 +361,11 @@ function popBalloon(balloon)
 
 function despawnGrapple()
 {
-    if(grappleSpawner == null)
+    if(grappleSpawner.deleted)
         return;
+    else
+        grappleSpawner.deleted = true;
+
     grappleDeploying = false;
     deleteEntity(grappleSpawner);
     for(let i in grappleSections)
@@ -294,18 +390,11 @@ function restartLevel()
     grappleSpawning = false;
     grappleDeploying = false;
     reEnableGrappleDeploying = false;
-    hero.b2d.GetBody().SetPosition(new b2Vec2(50/SCALE, (600-48)/SCALE));
-    for(i in balloons)
-    {
-        if(!balloons[i].deleted)
-        {
-            deleteEntity(balloons[i]);
-        }
-    }
     balloons = [];
-    balloonsToPop = 1 + 2 + 4 + 8;
-    queueBalloonForSpawn(400, 300, 8, 1, 3);
     time = 1000;
+
+    deleteAllEntities();
+    initLevel(loadedLevels[currentLevel]);
 }
 
 function restartGame()
@@ -319,6 +408,12 @@ function restartGame()
 
 // Update World Loop
 update = () => {
+    if(!gameReady)
+        if(loadedLevels[currentLevel] == null) 
+            return;
+        else 
+            gameReady = true;
+
     ctx.font = "32px Arial";
     ctx.fillStyle = "#606060";
     ctx.fillText("Score: " + score,15,35);
@@ -488,9 +583,21 @@ function loadGameData(gameData)
             props.userData = {"id": name};
         else       
             props.userData.id = name;
-
         
         entityTypes[name] = createEntityProperties(props);
+    }
+
+
+    // Expand balloon properties
+    let m = entityTypes['balloon'].stageRadiusReductionMultiplier;
+    let e = structuredClone(entityTypes['balloon']);
+    entityTypes['balloon'] = [];
+    entityTypes['balloon'][e.userData.stage] = structuredClone(e);
+    while(e.userData.stage > 0)
+    {
+        e.radius *= m;
+        --e.userData.stage;
+        entityTypes['balloon'][e.userData.stage] = structuredClone(e);
     }
 }
 
@@ -633,6 +740,7 @@ listener.BeginContact = function(contact)
             let uD = contact.GetFixtureB().GetBody().GetUserData();
             balloonsToPop -= (2 ** (uD.stage + 1)) - 1; 
             deleteEntity(balloons[uD.index]);
+            balloons[uD.index].deleted = true;
             shielded = false;
         }
     }
@@ -645,6 +753,7 @@ listener.BeginContact = function(contact)
             let uD = contact.GetFixtureA().GetBody().GetUserData();
             balloonsToPop -= (2 ** (uD.stage + 1)) - 1; 
             deleteEntity(balloons[uD.index]);
+            balloons[uD.index].deleted = true;
             shielded = false;
         }
     }
@@ -680,4 +789,31 @@ listener.PreSolve = function(contact, oldManifold)
     let fixb=contact.GetFixtureB().GetBody().GetUserData().id;
 }
 
+
+
+
+
+levelLoadQueueStore = new createjs.LoadQueue(true);
+levelLoadQueueStore.addEventListener("complete",(e) =>
+    {
+        if(parseLevel(levelLoadQueueStore.getItems(true)) == false)
+            console.error("Failed to parse level");
+        else
+            console.log("Parsed level successfully");
+        levelLoadQueueStore.removeAll();
+    }
+);
+
+levelLoadQueueStore.loadManifest("assets/levels/1/manifest.json");
+
+levelLoadQueueImmediate = new createjs.LoadQueue(true);
+levelLoadQueueImmediate.addEventListener("complete",(e) =>
+    {
+        if(parseAndInitLevel(levelLoadQueueImmediate.getItems(true)) == false)
+            console.error("Failed to parse level");
+        else
+            console.log("Parsed level successfully");
+        levelLoadQueueImmediate.removeAll();
+    }
+);
 fetchGameData();

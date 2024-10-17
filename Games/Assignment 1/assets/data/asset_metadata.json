@@ -1,0 +1,15 @@
+{
+    "assetMetaData": {
+        "hero": {
+            "images": [ "testWalk", "testIdle" ],
+            "frames": {
+                "regX": 64, "regY": 105,
+                "width": 128, "height": 128
+            },
+            "animations": {
+                "walk":[0, 5, "walk", 0.15],
+                "idle":[6, 12, "idle",0.13]
+            }
+        }
+    }
+}

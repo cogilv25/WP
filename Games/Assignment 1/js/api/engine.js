@@ -64,6 +64,38 @@ function startGame()
 	_engineInit();
 }
 
+function deleteAllEntities()
+{
+	_engineDeleteEntities = [];
+	for(i in _engineEntities)
+    {
+    	let e = _engineEntities[i];
+    	if(e.b2d != null)
+			_engineB2DWorld.DestroyBody(e.b2d.GetBody());
+		if(e.easel != null)
+			_engineEaselStage.removeChild(e.easel);
+	}
+
+	// TODO:
+	// I marginally prefer the idea of managed contact
+	// listeners and freezing those...
+	
+	_enginePreventEntityActions = true;
+	_engineB2DWorld.Step(
+    1/60, // framerate
+    10, // velocity iterations
+    10 // position iterations
+    );
+    _enginePreventEntityActions = false;
+}
+
+// onLoadedFunction receives false on failure or
+// the generated Object on success
+function loadJson(path, onLoadedFunction)
+{
+	//preload Shtuffssh
+}
+
 function getDefaultEntityProperties()
 {
 	let props = { 
@@ -114,77 +146,31 @@ function createEntityProperties(sparseProperties)
 // where using sparse properties
 function createEntity(properties = null)
 {
+	if(_enginePreventEntityActions)
+		return null;
+
 	if(properties == null)
 		properties = getDefaultEntityProperties();
 	let entity = {};
 	if(properties.createB2D)
 		entity.b2d = _createB2DEntity(properties);
 	if(properties.createEasel)
-	{
 		entity.easel = _createEaselEntity(properties);
-	}
 
 	if(properties.linkB2DToEasel)
-	{
-		entity.engneId = _engineLinkedEntities.length;
-		_engineLinkedEntities.push(entity);
-	}
+		entity.linked = true;
+
+	_engineEntities.push(entity);
+	entity.engineID = _engineEntities.length - 1;
 
 	return entity;
 }
 
 function deleteEntity(entity)
 {
-	_engineDeleteEntities.push(entity);
+	if(!_enginePreventEntityActions)
+		_engineDeleteEntities.push(entity);
 }
-
-function defineNewStatic(density, friction, restitution, x, y, width, height, angle, objid) {
-    let fixDef = new b2FixtureDef;
-    fixDef.density = density;
-    fixDef.friction = friction;
-    fixDef.restitution = restitution;
-    let bodyDef = new b2BodyDef;
-    bodyDef.type = b2Body.b2_staticBody;
-    bodyDef.position.x = x / SCALE;
-    bodyDef.position.y = y / SCALE;
-    bodyDef.angle = angle;
-    fixDef.shape = new b2PolygonShape;
-    fixDef.shape.SetAsBox(width/SCALE, height/SCALE);
-    let thisobj = _engineB2DWorld.CreateBody(bodyDef).CreateFixture(fixDef);
-    thisobj.GetBody().SetUserData({id:objid})
-    return thisobj;
-}
-
-function defineNewDynamic(density, friction, restitution, x, y, width, height, objid) {
-    let fixDef = new b2FixtureDef;
-    fixDef.density = density;
-    fixDef.friction = friction;
-    fixDef.restitution = restitution;
-    let bodyDef = new b2BodyDef;
-    bodyDef.type = b2Body.b2_dynamicBody;
-    bodyDef.position.x = x / SCALE;
-    bodyDef.position.y = y / SCALE;
-    fixDef.shape = new b2PolygonShape;
-    fixDef.shape.SetAsBox(width/SCALE, height/SCALE);
-    let thisobj = _engineB2DWorld.CreateBody(bodyDef).CreateFixture(fixDef);
-    thisobj.GetBody().SetUserData({id:objid})
-    return thisobj;
-}
-
-function defineNewDynamicCircle(density, friction, restitution, x, y, r, objid) {
-    let fixDef = new b2FixtureDef;
-    fixDef.density = density;
-    fixDef.friction = friction;
-    fixDef.restitution = restitution;
-    let bodyDef = new b2BodyDef;
-    bodyDef.type = b2Body.b2_dynamicBody;
-    bodyDef.position.x = x / SCALE;
-    bodyDef.position.y = y / SCALE;
-    fixDef.shape = new b2CircleShape(r/SCALE);
-    let thisobj = _engineB2DWorld.CreateBody(bodyDef).CreateFixture(fixDef);
-    thisobj.GetBody().SetUserData({id:objid})
-    return thisobj;
-}  
 
 // Internal variables, defines, etc, not intended to be used
 // externally but may be warranted where certain behaviours are
@@ -199,7 +185,8 @@ var _engineRenderModes =
 	"none": _engineRenderNone
 };
 
-var _engineLinkedEntities = [];
+var _enginePreventEntityActions = false;
+var _engineEntities = [];
 
 // B2D
 var _engineB2DWorld;
@@ -233,20 +220,17 @@ var _engineUpdate = () =>
 	// - backgrounds == easel only
     for(i in _engineDeleteEntities)
     {
-		// debugger;
     	let e = _engineDeleteEntities[i];
     	if(e.b2d != null)
 			_engineB2DWorld.DestroyBody(e.b2d.GetBody());
 		if(e.easel != null)
 			_engineEaselStage.removeChild(e.easel);
-		if(e.engineId != null)
+
+		let j = e.engineID;
+		_engineEntities.splice(e.engineID, 1);
+		for(;j < _engineEntities.length; ++j)
 		{
-			let j = e.engineId;
-			_engineLinkedEntities.splice(j, 1);
-			for(; j < _engineLinkedEntities.length; j++)
-			{
-				--_engineLinkedEntities[j].engineId;
-			}
+			--_engineEntities[j].engineID;
 		}
     }
     _engineDeleteEntities = [];
@@ -339,9 +323,12 @@ function _engineInitEasel()
 
 function _engineUpdateLinkedEntities()
 {
-	for(let i in _engineLinkedEntities)
+	for(let i in _engineEntities)
 	{
-		let e = _engineLinkedEntities[i];
+		let e = _engineEntities[i];
+
+		if(!e.linked) continue;
+
 		let pos = e.b2d.GetBody().GetPosition();
 		let rot = e.b2d.GetBody().GetAngle() * 180 / Math.PI;
 		e.easel.x = pos.x * SCALE;
@@ -427,6 +414,7 @@ function _createEaselEntity(props)
 		image.regY = image.image.height/2;
 		image.x = props.x;
 		image.y = props.y;
+		image.rotation = props.rotation;
 		_engineEaselStage.addChild(image);
 		return image;
 	}
