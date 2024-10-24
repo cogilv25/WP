@@ -1,0 +1,11 @@
+{
+	"path": "assets/",
+	"id": "manifest",
+	"manifest": [
+		{"src": "levels/1/entities.json", "id": "entities"},
+		{"src": "levels/1/props.json", "id": "props"},
+		{"src": "city%201/10.png", "id": "background"},
+		{"src": "balloon2.png", "id": "balloon"},
+		{"src": "man.png", "id": "hero"}
+	]
+}

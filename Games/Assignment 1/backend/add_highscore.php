@@ -2,7 +2,8 @@
 	session_start();
 	require "database.php";
 	
-	 if(!isset($_SESSION['user']))
+	//Validation
+	if(!isset($_SESSION['user']))
 	 	setErrorAndDie($ERROR_LOGGED_OUT);
 
 	//Validate score
@@ -16,15 +17,6 @@
 	if ($score < 0)
 		setErrorAndDie($ERROR_INVALID_DATA);
 
-
-	//Push new score to the database
 	$db = initializeDatabase();
-
-	$result = $db->query("
-		INSERT INTO `highscore` (`user_id`,`score`) SELECT " . 
-		$_SESSION['user'] . "," . $score . " WHERE " .
-		$score . "> (SELECT COALESCE(MAX(`score`),0) from `highscore`)"
-	);
-
-	die($db->affected_rows > 0 ? "true" : "false");
+	die(json_encode(insertScoreIfNewHighscore(initializeDatabase(), $score)));
 ?>

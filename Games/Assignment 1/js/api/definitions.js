@@ -1,4 +1,5 @@
 "use strict"
+
 var b2Vec2 = Box2D.Common.Math.b2Vec2;
 var b2BodyDef = Box2D.Dynamics.b2BodyDef;
 var b2Body = Box2D.Dynamics.b2Body;
@@ -15,9 +16,3 @@ var WIDTH=800;
 var HEIGHT=600;
 var SCALE=30;
 var GRAVITY=9.81;
-
-var canvas = document.getElementById("canvas");
-var ctx = canvas.getContext("2d");
-
-var canvas2 = document.getElementById("canvas2");
-var ctx2 = canvas2.getContext("2d");

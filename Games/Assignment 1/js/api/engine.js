@@ -64,6 +64,46 @@ function startGame()
 	_engineInit();
 }
 
+function deleteAllEntities()
+{
+	_engineDeleteEntities = [];
+	for(i in _engineEntities)
+    {
+    	let e = _engineEntities[i];
+    	if(e.b2d != null)
+			_engineB2DWorld.DestroyBody(e.b2d.GetBody());
+		if(e.easel != null)
+			_engineEaselStage.removeChild(e.easel);
+	}
+
+	_engineEntities = [];
+
+	// TODO:
+	// I marginally prefer the idea of managed contact
+	// listeners and freezing those...
+	
+	_enginePreventEntityActions = true;
+	for (var i = 0; i < 2; ++i)
+	{
+		_engineB2DWorld.Step(
+	    1/60, // framerate
+	    10, // velocity iterations
+	    10 // position iterations
+	    );
+	    _engineB2DWorld.DrawDebugData();
+	}
+    _enginePreventEntityActions = false;
+}
+
+// onLoadedFunction receives false on failure or
+// the generated Object on success
+function loadJson(path, onLoadedFunction)
+{
+	//preload Shtuffssh
+}
+
+// I suppose even this could use a layer system... it would 
+//     avoid wasteful data usage and copying...
 function getDefaultEntityProperties()
 {
 	let props = { 
@@ -97,7 +137,7 @@ function createEntityProperties(sparseProperties)
 	if(sparseProperties != null)
 	{
 		for(let key of Object.keys(sparseProperties))
-			props[key] = sparseProperties[key];
+			props[key] = structuredClone(sparseProperties[key]);
 		if(sparseProperties.type == "static")
 		{
 			if(sparseProperties.linkB2DToEasel == null)
@@ -114,84 +154,48 @@ function createEntityProperties(sparseProperties)
 // where using sparse properties
 function createEntity(properties = null)
 {
+	if(_enginePreventEntityActions)
+		return null;
+
 	if(properties == null)
 		properties = getDefaultEntityProperties();
 	let entity = {};
 	if(properties.createB2D)
 		entity.b2d = _createB2DEntity(properties);
 	if(properties.createEasel)
-	{
 		entity.easel = _createEaselEntity(properties);
-	}
 
 	if(properties.linkB2DToEasel)
-	{
-		entity.engneId = _engineLinkedEntities.length;
-		_engineLinkedEntities.push(entity);
-	}
+		entity.linked = true;
+
+	_engineEntities.push(entity);
+	entity.engineID = _engineEntities.length - 1;
 
 	return entity;
 }
 
 function deleteEntity(entity)
 {
-	_engineDeleteEntities.push(entity);
+	if(!_enginePreventEntityActions)
+		_engineDeleteEntities.push(entity);
 }
 
-function defineNewStatic(density, friction, restitution, x, y, width, height, angle, objid) {
-    let fixDef = new b2FixtureDef;
-    fixDef.density = density;
-    fixDef.friction = friction;
-    fixDef.restitution = restitution;
-    let bodyDef = new b2BodyDef;
-    bodyDef.type = b2Body.b2_staticBody;
-    bodyDef.position.x = x / SCALE;
-    bodyDef.position.y = y / SCALE;
-    bodyDef.angle = angle;
-    fixDef.shape = new b2PolygonShape;
-    fixDef.shape.SetAsBox(width/SCALE, height/SCALE);
-    let thisobj = _engineB2DWorld.CreateBody(bodyDef).CreateFixture(fixDef);
-    thisobj.GetBody().SetUserData({id:objid})
-    return thisobj;
+function toggleEnginePaused()
+{
+	createjs.Ticker.paused = !createjs.Ticker.paused;
+	return createjs.Ticker.paused;
 }
 
-function defineNewDynamic(density, friction, restitution, x, y, width, height, objid) {
-    let fixDef = new b2FixtureDef;
-    fixDef.density = density;
-    fixDef.friction = friction;
-    fixDef.restitution = restitution;
-    let bodyDef = new b2BodyDef;
-    bodyDef.type = b2Body.b2_dynamicBody;
-    bodyDef.position.x = x / SCALE;
-    bodyDef.position.y = y / SCALE;
-    fixDef.shape = new b2PolygonShape;
-    fixDef.shape.SetAsBox(width/SCALE, height/SCALE);
-    let thisobj = _engineB2DWorld.CreateBody(bodyDef).CreateFixture(fixDef);
-    thisobj.GetBody().SetUserData({id:objid})
-    return thisobj;
+function togglePhysicsPaused()
+{
+	_enginePhysicsPaused = !_enginePhysicsPaused;
 }
-
-function defineNewDynamicCircle(density, friction, restitution, x, y, r, objid) {
-    let fixDef = new b2FixtureDef;
-    fixDef.density = density;
-    fixDef.friction = friction;
-    fixDef.restitution = restitution;
-    let bodyDef = new b2BodyDef;
-    bodyDef.type = b2Body.b2_dynamicBody;
-    bodyDef.position.x = x / SCALE;
-    bodyDef.position.y = y / SCALE;
-    fixDef.shape = new b2CircleShape(r/SCALE);
-    let thisobj = _engineB2DWorld.CreateBody(bodyDef).CreateFixture(fixDef);
-    thisobj.GetBody().SetUserData({id:objid})
-    return thisobj;
-}  
 
 // Internal variables, defines, etc, not intended to be used
 // externally but may be warranted where certain behaviours are
 // desired. You have been warned!
 
 var _engineContexts = [ctx, ctx2];
-var _engineRunning = true;
 var _engineRenderModes = 
 { 
 	"easel": _engineRenderEasel,
@@ -199,9 +203,11 @@ var _engineRenderModes =
 	"none": _engineRenderNone
 };
 
-var _engineLinkedEntities = [];
+var _enginePreventEntityActions = false;
+var _engineEntities = [];
 
 // B2D
+var _enginePhysicsPaused = false;
 var _engineB2DWorld;
 var _engineB2DDebugDraw;
 var _engineB2DEntities = [];
@@ -226,38 +232,39 @@ var _engineInit = () =>
 	_engineInitB2D(_engineContexts[0]);
 }
 
-var _engineUpdate = () =>
+var _engineUpdate = (e) =>
 {
+	if(e.paused) return;
 	//TODO: Some entities will be b2d or easel only
 	// - Sensors == b2d only
 	// - backgrounds == easel only
     for(i in _engineDeleteEntities)
     {
-		// debugger;
     	let e = _engineDeleteEntities[i];
     	if(e.b2d != null)
 			_engineB2DWorld.DestroyBody(e.b2d.GetBody());
 		if(e.easel != null)
 			_engineEaselStage.removeChild(e.easel);
-		if(e.engineId != null)
+
+		let j = e.engineID;
+		_engineEntities.splice(e.engineID, 1);
+		for(;j < _engineEntities.length; ++j)
 		{
-			let j = e.engineId;
-			_engineLinkedEntities.splice(j, 1);
-			for(; j < _engineLinkedEntities.length; j++)
-			{
-				--_engineLinkedEntities[j].engineId;
-			}
+			--_engineEntities[j].engineID;
 		}
     }
     _engineDeleteEntities = [];
 
 
     update();
-    _engineB2DWorld.Step(
-    1/60, // framerate
-    10, // velocity iterations
-    10 // position iterations
-    );
+    if(!_enginePhysicsPaused)
+    {
+	    _engineB2DWorld.Step(
+	    1/60, // framerate
+	    10, // velocity iterations
+	    10 // position iterations
+	    );
+	}
 
     _engineUpdateLinkedEntities();
 
@@ -339,9 +346,12 @@ function _engineInitEasel()
 
 function _engineUpdateLinkedEntities()
 {
-	for(let i in _engineLinkedEntities)
+	for(let i in _engineEntities)
 	{
-		let e = _engineLinkedEntities[i];
+		let e = _engineEntities[i];
+
+		if(!e.linked) continue;
+
 		let pos = e.b2d.GetBody().GetPosition();
 		let rot = e.b2d.GetBody().GetAngle() * 180 / Math.PI;
 		e.easel.x = pos.x * SCALE;
@@ -352,9 +362,6 @@ function _engineUpdateLinkedEntities()
 
 function _engineRenderEasel(context)
 {
-	// Update easel transforms
-	// Draw Easel scene
-    //_engineEaselStage.update();
     _engineEaselStage.update();
 }
 
@@ -411,37 +418,37 @@ function _createEaselEntity(props)
 	//TODO: Seperate initialization of easel objects from linking to entities <- Can't
 	if(props.easelType == "bitmap")
 	{
-		let image = new createjs.Bitmap(_engineLoader.getResult(props.userData.id));
+		let image = new createjs.Bitmap(assets[props.userData.id]);
 		if(props.shape == "rect")
 		{
+			//TODO: scale values should be asset metadata not props
 			image.scaleY = ((props.height * 2) / image.image.naturalHeight) * props.scaleY;
 			image.scaleX = ((props.width * 2) / image.image.naturalWidth) * props.scaleX;
 		}
 		else if(props.shape == "circle")
 		{
+			//TODO: scale values should be asset metadata not props
 			let oScale = (props.radius * 2) / image.image.naturalHeight;
 			image.scaleY = oScale * props.scaleX;
 			image.scaleX = oScale * props.scaleY;
 		}
-		image.regX = image.image.width/2;
-		image.regY = image.image.height/2;
 		image.x = props.x;
 		image.y = props.y;
+		image.rotation = props.rotation;
+		//TODO: should be asset metadata
+		image.regX = image.image.width/2;
+		image.regY = image.image.height/2;
 		_engineEaselStage.addChild(image);
 		return image;
 	}
 	else if(props.easelType == "spritesheet")
 	{
 		let meta = assetMetaData[props.userData.id];
-		for(let i in meta.images)
-		{
-			meta.images[i] = _engineLoader.getResult(meta.images[i]);
-		}
-		console.log(meta);
 		let spritesheet = new createjs.SpriteSheet(meta);
 		let entity = new createjs.Sprite(spritesheet, "idle");
 		entity.x = props.x;
 		entity.y = props.y;
+		//TODO: probably should be asset metadata
 		entity.scaleX = props.scaleX;
 		entity.scaleY = props.scaleY;
 
@@ -452,7 +459,7 @@ function _createEaselEntity(props)
 	{
 		let rect = new createjs.Shape();
 		rect.graphics.beginBitmapFill(
-			_engineLoader.getResult(props.userData.id)
+			assets[props.userData.id]
 		).drawRect(props.x,props.y,props.width*2,props.height*2)
 		//TODO: should be asset metadata
 		rect.tileW = props.tileWidth;

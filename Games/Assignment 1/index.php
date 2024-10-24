@@ -1,39 +1,54 @@
 <?php
-    session_start();
+    declare(strict_types=1);
+    require("backend/OAuth2.php");
 
+    if(isset($_GET['action']))
+        if($_GET['action'] == "logout")
+            logout();
+        
+    $authd = attemptAuthorization();
 ?>
 <!DOCTYPE html>
 <html>
     <head>
+        <!-- Normalize.css (MIT licence) https://necolas.github.io/normalize.css/ -->
+        <link rel="stylesheet" href="normalize.css">
+
+        <!-- Stylesheet -->
+        <link rel="stylesheet" href="style.css">
+        <?php if($authd) { ?>
+        <!-- Flow control / Website -->
+        <script src="./js/site.js" defer></script>
+
         <!-- External Dependencies -->
-        <script src="./../Box2dWeb-2.1.a.3.min.js" defer></script>
+        <script src="./Box2dWeb-2.1.a.3.min.js" defer></script>
         <script src="https://code.createjs.com/1.0.0/easeljs.min.js" defer></script>
         <script src="https://code.createjs.com/1.0.0/preloadjs.min.js" defer></script>
+        <script src="https://code.createjs.com/1.0.0/soundjs.min.js" defer></script>
 
         <!-- API / "Engine" -->
         <script src="./js/api/definitions.js" defer></script>
         <script src="./js/api/engine.js" defer></script>
+        <script src="./js/api/level.js" defer></script>
         <script src="./js/api/keyboard.js" defer></script>
 
         <!-- Game -->
         <script src="./js/game.js" defer></script>
+        <?php } ?>
 
         <title>
             Pang
         </title>
     </head>
-    <body style="background-color: #aaa;">
-        <div style="display: flex; flex-direction: column; justify-content: space-around;">
-            <div style="display: flex; flex-direction: row; justify-content: center;">
-                <h1>Pang!</h1>
-            </div>
-            <div style="display: flex; flex-direction: row; justify-content: center;">
-                <div style="width: 800px; height: 600px;">
-                    <canvas id="canvas" width="800" height="600" style="width: 100%; background-color: #f0f0f0; margin: 0px 0px 20px 0px;"></canvas>
-                    <canvas id="canvas2" width="800" height="600" style="width: 100%; height: 100%; background-color: #f0f0f0;"></canvas>
-
-                </div>
-            </div>
-        </div>
+    <body class="disable_unwanted_interactions">
+        <?php
+            if($authd)
+                require("game.php");
+            else
+                require("login.php");
+        ?>
+      <footer style="margin-top: 50px;display: flex; flex-direction: row; justify-content: center;">
+        <p style="color: #fff; font-family: 'Spectral'; font-weight: normal; font-size: 18px;">&copy; 2024 Oblivious Proficiency</p>
+      </footer>
     </body>
 </html>

@@ -2,7 +2,7 @@
 	"path": "assets/",
 	"manifest": [
 		{"src": "data/game.json", "id": "settings"},
-		{"src": "data/assets.json", "id": "metadata"},
+		{"src": "data/asset_metadata.json", "id": "metadata"},
 		{"src": "city%201/10.png", "id": "background"},
 		{"src": "balloon2.png", "id": "balloon"},
 		{"src": "man.png", "id": "hero"},
@@ -15,6 +15,12 @@
 		{"src": "wall.png", "id": "edge"},
 		{"src": "ladder.png", "id": "ladder"},
 		{"src": "shield.png", "id": "item"},
-		{"src": "platform_light.png", "id": "platform"}
+		{"src": "platform_light.png", "id": "platform"},
+		{"src": "audio/tick.ogg", "id": "tick_sound"},
+		{"src": "audio/pop1.ogg", "id": "pop1_sound"},
+		{"src": "audio/pop2.ogg", "id": "pop2_sound"},
+		{"src": "audio/pop3.ogg", "id": "pop3_sound"},
+		{"src": "audio/pop4.ogg", "id": "pop4_sound"},
+		{"src": "audio/whistle.ogg", "id": "whistle_sound"}
 	]
 }

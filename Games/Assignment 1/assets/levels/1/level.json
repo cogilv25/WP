@@ -1,0 +1,20 @@
+{
+	"name": "Level 1",
+	"ID" : 0,
+	"entities":
+	[
+
+		{
+			"type": "balloon",
+			"x": 400, "y": 120,
+			"impX": -10,
+			"impY": -4,
+			"stage": 3
+		},
+
+		{
+			"type": "hero",
+			"x": 400, "y": 487
+		}
+	]
+}

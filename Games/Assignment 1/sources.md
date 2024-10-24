@@ -6,3 +6,6 @@
 - [Street Backgrounds](https://craftpix.net/freebies/free-pixel-art-street-2d-backgrounds/)
 - [Post-Apocalypse Backgrounds](https://craftpix.net/freebies/free-post-apocalyptic-pixel-art-game-backgrounds/)
 - [Soldier Character](https://craftpix.net/freebies/free-soldier-sprite-sheets-pixel-art/)
+
+# CSS Styling
+- [Normalize.css](https://necolas.github.io/normalize.css/)
