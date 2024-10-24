@@ -1,4 +1,5 @@
 <?php
+	require("secrets.php");
 	define('OAUTH2_PROVIDERS', [
 		"Discord" => [
 			"authURL" => "https://discord.com/api/oauth2/authorize",
@@ -42,7 +43,7 @@
 			"apiURL" => "https://api.amazon.co.uk/user/profile",
 			"scope" => "profile",
 			"client_id" => "amzn1.application-oa2-client.97d7eba8d75149caae4f4abe6356f334",
-			"client_secret" => "amzn1.oa2-cs.v1.003ffffc8a1e79f9907481cf18fe97e934db1b8c7be5e6501c323eed0f964d8d",
+			"client_secret" => AMAZON_SECRET,
 			"unique" => "user_id",
 			"name" => "name",
 			"avatar" => [ "./assets/oauth/default_profile.png" ]
