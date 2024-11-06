@@ -1,0 +1,34 @@
+{
+	"name": "Level 3",
+	"ID" : 2,
+	"entities":
+	[
+		{
+		"type": "ladder",
+		"x": 400, "y": 510,
+		"sections": 15
+		},
+
+		{
+			"type": "platform",
+			"x": 550, "y": 160,
+			"height": 12,
+			"width": 80,
+			"rotation": 0,
+			"breaks": false
+		},
+
+		{
+			"type": "balloon",
+			"x": 400, "y": 300,
+			"impX": 10,
+			"impY": -4,
+			"stage": 3
+		},
+
+		{
+			"type": "hero",
+			"x": 200, "y": 487
+		}
+	]
+}

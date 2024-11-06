@@ -1,0 +1,8 @@
+{
+	"path": "assets/",
+	"id": "manifest",
+	"manifest": [
+		{"src": "levels/4/level.json", "id": "level"},
+		{"src": "nature%203/orig.png", "id": "background"}
+	]
+}

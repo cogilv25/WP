@@ -1,13 +1,48 @@
 {
     "hero": {
-        "images": [ "testWalk", "testIdle" ],
+        "images": [ "heroWalk", "heroIdle" ],
         "frames": {
-            "regX": 64, "regY": 105,
-            "width": 128, "height": 128
+            "regX": 16, "regY": 32,
+            "width": 32, "height": 64
         },
         "animations": {
-            "walk":[0, 5, "walk", 0.15],
-            "idle":[6, 12, "idle",0.13]
+            "walk":[0, 4, "walk", 0.15],
+            "idle":[5, 9, "idle",0.13]
         }
+    },
+
+    "tick_sound": {
+        "type": "sound",
+        "singleInstance": true
+    },
+
+    "whistle_sound": {
+        "type": "sound",
+        "singleInstance": true
+    },
+
+    "bg_track_1": {
+        "type": "sound",
+        "singleInstance": true
+    },
+
+    "bg_track_2": {
+        "type": "sound",
+        "singleInstance": true
+    },
+
+    "bg_track_3": {
+        "type": "sound",
+        "singleInstance": true
+    },
+
+    "bg_track_4": {
+        "type": "sound",
+        "singleInstance": true
+    },
+
+    "bg_track_5": {
+        "type": "sound",
+        "singleInstance": true
     }
 }

@@ -1,0 +1,66 @@
+{
+	"name": "Level 4",
+	"ID" : 3,
+	"entities":
+	[
+		{
+		"type": "ladder",
+		"x": 565, "y": 510,
+		"sections": 2
+		},
+		
+		{
+		"type": "ladder",
+		"x": 770, "y": 450,
+		"sections": 12
+		},
+
+		{
+			"type": "platform",
+			"x": 650, "y": 200,
+			"height": 8,
+			"width": 80,
+			"rotation": 0,
+			"breaks": true
+		},
+
+		{
+			"type": "platform",
+			"x": 660, "y": 339,
+			"height": 8,
+			"width": 60,
+			"rotation": 0,
+			"breaks": true
+		},
+
+		{
+			"type": "platform",
+			"x": 690, "y": 478,
+			"height": 8,
+			"width": 100,
+			"rotation": 0,
+			"breaks": false
+		},
+
+		{
+			"type": "balloon",
+			"x": 400, "y": 120,
+			"impX": 10,
+			"impY": -4,
+			"stage": 3
+		},
+
+		{
+			"type": "balloon",
+			"x": 100, "y": 180,
+			"impX": -10,
+			"impY": -4,
+			"stage": 0
+		},
+
+		{
+			"type": "hero",
+			"x": 200, "y": 487
+		}
+	]
+}

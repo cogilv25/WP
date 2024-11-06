@@ -8,8 +8,8 @@
 		{"src": "man.png", "id": "hero"},
 		{"src": "grapple1.png", "id": "grapple"},
 		{"src": "grapple_tip.png", "id": "grapple_tip"},
-		{"src": "hero/Idle.png", "id": "testIdle"},
-		{"src": "hero/Run.png", "id": "testWalk"},
+		{"src": "man/idle.png", "id": "heroIdle"},
+		{"src": "man/walk.png", "id": "heroWalk"},
 		{"src": "wall.png", "id": "ground"},
 		{"src": "wall.png", "id": "roof"},
 		{"src": "wall.png", "id": "edge"},
@@ -21,6 +21,11 @@
 		{"src": "audio/pop2.ogg", "id": "pop2_sound"},
 		{"src": "audio/pop3.ogg", "id": "pop3_sound"},
 		{"src": "audio/pop4.ogg", "id": "pop4_sound"},
-		{"src": "audio/whistle.ogg", "id": "whistle_sound"}
+		{"src": "audio/whistle.ogg", "id": "whistle_sound"},
+		{"src": "audio/music/1.ogg", "id": "bg_track_1"},
+		{"src": "audio/music/2.ogg", "id": "bg_track_2"},
+		{"src": "audio/music/3.ogg", "id": "bg_track_3"},
+		{"src": "audio/music/4.ogg", "id": "bg_track_4"},
+		{"src": "audio/music/5.ogg", "id": "bg_track_5"}
 	]
 }

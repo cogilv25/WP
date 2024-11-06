@@ -6,8 +6,42 @@ var ctx = canvas.getContext("2d");
 var canvas2 = document.getElementById("canvas2");
 var ctx2 = canvas2.getContext("2d");
 
-var bigLoadingNode = document.getElementsByClassName("lds-spinner-big")[0];
-var loadingNode = document.getElementById("loading");
+function toggleCanvasDisplayed()
+{
+	canvas.classList.toggle("fadeIn")
+	canvas2.classList.toggle("fadeIn")
+	canvas.classList.toggle("fadeOut")
+	canvas2.classList.toggle("fadeOut")
+}
+
+function setContinueButtonVisibility(visible)
+{
+	if(visible)
+		mainMenu.buttons[0].classList.remove("hidden");
+	else
+		mainMenu.buttons[0].classList.add("hidden");
+}
+
+function showPopup()
+{
+	popupMenu.element.classList.add("fadeIn");
+	popupMenu.element.classList.remove("fadeOut");
+}
+
+function setPopupHeading(heading)
+{
+	popupMenu.heading.textContent = heading;
+}
+
+function setPopupMessage(message)
+{
+	popupMenu.message.textContent = message;
+}
+
+function setPopupScore(score)
+{
+	popupMenu.score.textContent = score;
+}
 
 function showLoadingIndicator()
 {
@@ -26,6 +60,7 @@ function showPauseMenu()
 	pauseMenu.open = true;
 	menuContainer.classList.add("fadeIn");
 	menuContainer.classList.remove("fadeOut");
+	hudContainer.classList.add("hud_pause_menu");
 	viewport.classList.add("viewport_dark");
 }
 
@@ -33,27 +68,97 @@ function hidePauseMenu()
 {
 	menuContainer.classList.remove("fadeIn");
 	menuContainer.classList.add("fadeOut");
+	hudContainer.classList.remove("hud_pause_menu");
 	viewport.classList.remove("viewport_dark");
 	pauseMenu.open = false;
 	gameUnPauseCallback();
+}
+
+function setHudScore(score)
+{
+	hudScore.textContent = "Score: " + score;
+}
+
+function setHudLevel(levelName, animate = true)
+{
+	hudLevel.textContent = levelName;
+	if(animate)
+		hudLevel.classList.add("hud_level_animation");
+}
+
+function setHudTime(time)
+{
+	hudTime.textContent = "Time: " + time;
+}
+
+function updateHealthBar(lives)
+{
+	for(let i = 0; i < 8; ++i)
+    {
+        let expected = (i < lives) ? "fadeIn" : "fadeOut";
+        let opposite = (i < lives) ? "fadeOut" : "fadeIn";
+
+        if(!hudLives.hearts[i].classList.contains(expected))
+        {
+            hudLives.hearts[i].classList.add(expected);
+            hudLives.hearts[i].classList.remove(opposite);
+        }
+    }
 }
 
 function setUnPauseCallback(fun) { gameUnPauseCallback = fun; }
 function setNewGameCallback(fun) { gameNewGameCallback = fun; }
 function setContinueCallback(fun) { gameContinueCallback = fun; }
 function setQuitGameCallback(fun) { gameQuitGameCallback = fun; }
-function setMenuItemHoverCallback(fun) {gameMenuItemHoverCallback = fun;}
+function setMenuItemHoverCallback(fun) {gameMenuItemHoverCallback = fun; }
+function setLevelAnimateCallback(fun) {gameLevelAnimateCallback = fun; }
+function setPopupClosedCallback(fun) { gamePopupClosedCallback = fun; }
 
 // Beyond this point is not intended for external use
 
-var gameUnPauseCallback = () => {console.error("No un-pause callback provided use setUnPauseCallback")};
-var gameContinueCallback = () => {console.error("No continue callback provided use setContinueCallback")};
-var gameNewGameCallback = () => {console.error("No new game callback provided use setNewGameCallback")};
-var gameQuitGameCallback = () => {console.error("No quit game callback provided use setQuitGameCallback")};
-var gameMenuItemHoverCallback = () => {console.log("tick")};
+var gameUnPauseCallback = () => {console.error("No un-pause callback provided use setUnPauseCallback");};
+var gameContinueCallback = () => {console.error("No continue callback provided use setContinueCallback");};
+var gameNewGameCallback = () => {console.error("No new game callback provided use setNewGameCallback");};
+var gameQuitGameCallback = () => {console.error("No quit game callback provided use setQuitGameCallback");};
+var gamePopupClosedCallback = () => {console.error("No popup closed callback provided use setPopupClosedCallback");};
+var gameMenuItemHoverCallback = () => {};
+var gameLevelAnimateCallback = () => {};
 
 var viewport = document.getElementById("viewport");
 var menuContainer = document.getElementById("menus");
+var bigLoadingNode = document.getElementsByClassName("lds-spinner-big")[0];
+var loadingNode = document.getElementById("loading");
+var hudContainer = document.getElementById("hud");
+var hudScore = document.getElementById("hud_score");
+var hudLevel = document.getElementById("hud_level");
+var hudTime = document.getElementById("hud_time");
+var hudLives = {element: document.getElementById("healthbar"), hearts: []};
+
+var masterVolumeSlider = document.getElementById("master_volume_slider");
+var musicVolumeSlider = document.getElementById("music_volume_slider");
+
+masterVolumeSlider.addEventListener("input", (e) =>
+{
+	createjs.Sound.volume = e.target.value / 100;
+});
+
+musicVolumeSlider.addEventListener("input", (e) =>
+{
+	bgMusicVolume = e.target.value / 100;
+	if(bgMusicTrack != null)
+		bgMusicTrack.volume = e.target.value / 100;
+});
+
+for (var i = 0; i < 8; ++i)
+{
+	hudLives.hearts[i] = document.getElementById("heart" + i);
+}
+
+hudLevel.addEventListener("animationend",() => 
+{ 
+	hudLevel.classList.remove("hud_level_animation");
+	gameLevelAnimateCallback();
+});
 
 var mainMenu = {buttons:[]};
 mainMenu.element = document.getElementById("menu_main");
@@ -88,6 +193,14 @@ var settingsMenu = {list:[]};
 settingsMenu.element = document.getElementById("menu_settings");
 settingsMenu.backButton = document.getElementById("menu_settings-button0");
 settingsMenu.backButton.addEventListener("mouseenter", ()=>{gameMenuItemHoverCallback();});
+
+var popupMenu = {
+	element: document.getElementById("popup"),
+	heading: document.getElementById("popup-heading"),
+	message: document.getElementById("popup-message"),
+	okButton: document.getElementById("popup-button0"),
+	score: document.getElementById("popup-score")
+};
 
 var currentMenu = mainMenu;
 
@@ -150,13 +263,16 @@ pauseMenu.buttons[0].addEventListener("click", hidePauseMenu);
 // Setup Quit button
 pauseMenu.buttons[3].addEventListener("click", () =>
 {
+	gameQuitGameCallback();
 	changeMenu(mainMenu);
 	pauseMenu.open = false;
 	menuContainer.classList.remove("fadeIn");
 	canvas2.classList.add("fadeOut");
 	canvas2.classList.remove("fadeIn");
+	hudContainer.classList.add("fadeOut");
+	hudContainer.classList.remove("fadeIn");
 	menuContainer.classList.remove("overlay");
-	gameQuitGameCallback();
+	hudContainer.classList.remove("hud_pause_menu");
 });
 
 // Setup the Logout button
@@ -166,23 +282,51 @@ mainMenu.buttons[4].addEventListener("click",
 // Setup the Continue button
 mainMenu.buttons[0].addEventListener("click", () =>
 {
+	if(!gameReady) return;
 	menuContainer.classList.add("fadeOut");
 	mainMenu.element.classList.add("fadeOut");
 	mainMenu.element.classList.remove("fadeIn");
 	canvas2.classList.add("fadeIn");
 	canvas2.classList.remove("fadeOut");
+	hudContainer.classList.add("fadeIn");
+	hudContainer.classList.remove("fadeOut");
 	gameContinueCallback();
 });
 
 // Setup the New Game button
 mainMenu.buttons[1].addEventListener("click", () =>
 {
+	if(!gameReady) return;
 	menuContainer.classList.add("fadeOut");
+	menuContainer.classList.remove("fadeIn");
 	mainMenu.element.classList.add("fadeOut");
 	mainMenu.element.classList.remove("fadeIn");
 	canvas2.classList.add("fadeIn");
 	canvas2.classList.remove("fadeOut");
+	hudContainer.classList.add("fadeIn");
+	hudContainer.classList.remove("fadeOut");
 	gameNewGameCallback();
+});
+
+// Setup the ok button for the popup
+popupMenu.okButton.addEventListener("click", () =>
+{
+	gamePopupClosedCallback();
+	pauseMenu.open = false;
+	changeMenu(mainMenu);
+	menuContainer.classList.add("fadeIn");
+	menuContainer.classList.remove("fadeOut");
+	menuContainer.classList.remove("overlay");
+	canvas2.classList.add("fadeOut");
+	canvas2.classList.remove("fadeIn");
+	hudContainer.classList.add("fadeOut");
+	hudContainer.classList.remove("fadeIn");
+	hudContainer.classList.remove("hud_pause_menu");
+	window.setTimeout(()=>
+	{
+		popupMenu.element.classList.add("fadeOut");
+		popupMenu.element.classList.remove("fadeIn");
+	}, 400);
 });
 
 function menuTransitionEndEvent(e)
@@ -202,11 +346,8 @@ function menuTransitionEndEvent(e)
 			if(menuContainer.classList.contains("fadeOut"))
 			{
 				menuContainer.classList.add("overlay");
+				hudContainer.classList.remove("hud_pause_menu");
 				currentMenu = pauseMenu;
-			}
-			else if(menuContainer.classList.contains("overlay_fade"))
-			{
-				canvas2.style.display = "none";
 			}
 		}
 

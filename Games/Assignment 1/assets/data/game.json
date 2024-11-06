@@ -1,5 +1,15 @@
 {
     "entityTypes": {
+        "background": {
+            "x": 400, "y": 300,
+            "shape": "rect",
+            "width": 400, "height": 300,
+            "scaleX": 1,
+            "scaleY": 1,
+            "createEasel": true,
+            "createB2D": false,
+            "easelType": "bitmap"
+        },
         "edge": {
             "x":0,
             "y": 300,
@@ -59,8 +69,7 @@
             "createEasel": true,
             "linkB2DToEasel" : true,
             "easelType": "spritesheet",
-            "scaleX": 1.5,
-            "scaleY": 1.5
+            "scaleY": 1.375, "scaleX": 1.25
         },
 
         "platform": {

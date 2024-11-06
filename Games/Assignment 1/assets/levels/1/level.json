@@ -3,7 +3,9 @@
 	"ID" : 0,
 	"entities":
 	[
-
+		{
+			"type": "background"
+		},
 		{
 			"type": "balloon",
 			"x": 400, "y": 120,

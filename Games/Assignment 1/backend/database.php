@@ -101,7 +101,8 @@ function insertScoreIfNewHighscore($db, $score)
 
 function getTopHighscores($db)
 {
-	$result = $db->query("SELECT `name`, `score` FROM `pang_highscore` JOIN `pang_user` ORDER BY `score` DESC LIMIT 8");
+	$result = $db->query("SELECT `name`, `score` FROM `pang_highscore` JOIN ".
+		"`pang_user` ON `user_id`=`pang_user`.`id` ORDER BY `score` DESC LIMIT 8");
 
 	// TODO: May not be needed, however, the behaviour of
 	//       fetch_all when the query fails is undocumented.

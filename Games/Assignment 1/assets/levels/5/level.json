@@ -1,0 +1,66 @@
+{
+	"name": "Final Level",
+	"ID" : 4,
+	"entities":
+	[
+		{
+		"type": "ladder",
+		"x": 435, "y": 510,
+		"sections": 7
+		},
+		
+		{
+			"type": "ladder",
+			"x": 365, "y": 510,
+			"sections": 7
+		},
+
+		{
+			"type": "platform",
+			"x": 400, "y": 450,
+			"height": 12,
+			"width": 80,
+			"rotation": 90,
+			"breaks": false
+		},
+
+		{
+			"type": "platform",
+			"x": 175, "y": 378,
+			"height": 8,
+			"width": 160,
+			"rotation": 0,
+			"breaks": true
+		},
+
+		{
+			"type": "platform",
+			"x": 625, "y": 378,
+			"height": 8,
+			"width": 160,
+			"rotation": 0,
+			"breaks": true
+		},
+
+		{
+			"type": "balloon",
+			"x": 400, "y": 120,
+			"impX": 10,
+			"impY": -4,
+			"stage": 3
+		},
+
+		{
+			"type": "balloon",
+			"x": 400, "y": 120,
+			"impX": -10,
+			"impY": -4,
+			"stage": 3
+		},
+
+		{
+			"type": "hero",
+			"x": 200, "y": 487
+		}
+	]
+}

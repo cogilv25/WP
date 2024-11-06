@@ -24,8 +24,9 @@ var initialize = () =>
 
 // Functions for game specific code to call into. this is the main
 // API that game-specific code should be calling into.
-// TODO: doesn't do anything..?
-// TODO: Refactor renderer, modes, and targets system
+
+// A list of keys which represent which renderers will be used in
+// which order, default renderers are: "none", "easel", and "debug"
 function setEngineRenderModes(renderModes)
 {
 	if(!Array.isArray(renderModes))
@@ -34,24 +35,33 @@ function setEngineRenderModes(renderModes)
 	}
 	else
 	{
+		_engineRenderers = [];
 		for(let i in renderModes)
 		{
-			if(i >= _engineRenderers.length)
-			{
-				console.error("Too many render modes submitted! Extra modes ignored");
-				return;
-			}
 			if(_engineRenderModes[renderModes[i]] == null) 
+			{
 				console.error("Invalid render mode specified! Submitted mode: " + renderModes[i]);
+				_engineRenderers[i] = ()=>{};
+			}
 			else
 				_engineRenderers[i] = _engineRenderModes[renderModes[i]];
 		}
 	}
 }
 
-function setEngineRenderTargets(renderTargets)
+// This is a list of contexts for each renderer to be passed.
+// context[0] => renderer[0], etc
+function setEngineRenderTargets(contextList)
 {
-	//TODO
+	_engineContexts = contextList;
+}
+
+// Add a renderer to the engine's list, a renderer is simply a function
+// that gets passed a context, this does not enable the renderer, see
+// setEngineRenderModes
+function addRenderer(fun, name)
+{
+	_engineRenderModes[name] = fun;
 }
 
 function setB2DContactListener(listener)
@@ -90,7 +100,6 @@ function deleteAllEntities()
 	    10, // velocity iterations
 	    10 // position iterations
 	    );
-	    _engineB2DWorld.DrawDebugData();
 	}
     _enginePreventEntityActions = false;
 }
@@ -180,15 +189,14 @@ function deleteEntity(entity)
 		_engineDeleteEntities.push(entity);
 }
 
-function toggleEnginePaused()
+function setEnginePaused(value)
 {
-	createjs.Ticker.paused = !createjs.Ticker.paused;
-	return createjs.Ticker.paused;
+	createjs.Ticker.paused = value;
 }
 
-function togglePhysicsPaused()
+function setPhysicsPaused(value)
 {
-	_enginePhysicsPaused = !_enginePhysicsPaused;
+	_enginePhysicsPaused = value;
 }
 
 // Internal variables, defines, etc, not intended to be used
@@ -313,21 +321,6 @@ function _engineInitB2D(context = null)
 
 function _engineProcessAssets()
 {
-	//TODO: process loaded assets
-	//TODO: check main application is ready
-
-	//Loop through props and process each entity type
-	//props.ldrimg = loader.getResult(props.id)
-	let props = {
-		userData: {id: "background"},
-		x: 400, y: 300,
-		shape: "rect",
-		width: 400, height: 300,
-		scaleX: 1,
-		scaleY: 1,
-		easelType: "bitmap"
-	};
-	_createEaselEntity(props);
 	_engineStart();
 }
 
@@ -421,13 +414,11 @@ function _createEaselEntity(props)
 		let image = new createjs.Bitmap(assets[props.userData.id]);
 		if(props.shape == "rect")
 		{
-			//TODO: scale values should be asset metadata not props
 			image.scaleY = ((props.height * 2) / image.image.naturalHeight) * props.scaleY;
 			image.scaleX = ((props.width * 2) / image.image.naturalWidth) * props.scaleX;
 		}
 		else if(props.shape == "circle")
 		{
-			//TODO: scale values should be asset metadata not props
 			let oScale = (props.radius * 2) / image.image.naturalHeight;
 			image.scaleY = oScale * props.scaleX;
 			image.scaleX = oScale * props.scaleY;
@@ -435,7 +426,6 @@ function _createEaselEntity(props)
 		image.x = props.x;
 		image.y = props.y;
 		image.rotation = props.rotation;
-		//TODO: should be asset metadata
 		image.regX = image.image.width/2;
 		image.regY = image.image.height/2;
 		_engineEaselStage.addChild(image);
@@ -448,9 +438,8 @@ function _createEaselEntity(props)
 		let entity = new createjs.Sprite(spritesheet, "idle");
 		entity.x = props.x;
 		entity.y = props.y;
-		//TODO: probably should be asset metadata
-		entity.scaleX = props.scaleX;
-		entity.scaleY = props.scaleY;
+		entity.scaleX = ((props.width * 2) / meta.frames.width) * props.scaleX;
+		entity.scaleY = ((props.height * 2) / meta.frames.height) * props.scaleY;
 
 		_engineEaselStage.addChild(entity);
 		return entity;
@@ -471,13 +460,3 @@ function _createEaselEntity(props)
 		return rect;
 	}
 }
-
-
-/** TODO:
- * ------------------------------------------------------------------------------------
- * 
- * - Support 2 contexts one easel one b2d. ✓
- *     - Support an arbitrary number of contexts. ~
- * 
- * 
-*/

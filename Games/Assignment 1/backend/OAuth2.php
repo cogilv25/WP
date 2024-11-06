@@ -3,7 +3,7 @@
 	//TODO: Remove debug code
 	//TODO: Refactor
 	session_start();
-	define('REDIRECT_URI', "https://comp-server.uhi.ac.uk/~21010093/test?action=login&provider=");
+	define('REDIRECT_URI', "https://comp-server.uhi.ac.uk/~21010093/WP1?action=login&provider=");
 	define('DEFAULT_AVATAR', "./assets/oauth/default_profile.png");
 	require("OAuth2Providers.php");
 	require("database.php");

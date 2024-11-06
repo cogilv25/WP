@@ -10,35 +10,40 @@
 // outside of box2d and the box2d one gets updated.... I think...
 
 var SCORE_BASE = 200;
-var BALLOON_BASE_SIZE = 9;
-var BALLOON_SIZES = 4;
 GRAVITY = 18;
 let loadedLevels = [];
 let currentLevel = 0;
-let levelNeedsInitialised = true;
 let gameReady = false;
 let paused = false;
+let balloonsToPop;
+let savePoint = null, loadSaveFlag = false;
+let gameOver = false, gameWon = false;
+let heroScaleX;
+let musicStarted = false;
+let bgMusicTrack, bgMusicVolume = 0.15;
 
 //TODO: Add a button on main & pause menus, this would neatly get around
 //        the annoying first interaction audio problem!
 let muted = true;
 
 let entityTypes = [];
-// This is a fragile structure and should probably be protected..
+
+// This is a fragile structure and should probably be protected, labels are loaded
+//  in for each image for each spritesheet then they are converted to images once
+//  we are sure the assets have loaded
 var assetMetaData = [];
 let rawDat;
-let levelLoadQueueStore, levelLoadQueueImmediate;
+let levelLoadQueue;
 
 // Should be a stack really, like levels should so if something is not found at the top
 // we can traverse down until we find it, or don't as the case may be
 let assets = {};
 
-let testToggle = false;
 let balloonsFrozen = false;
 
 let score = 0, time = 1000;
-let ground, roof, lWall, rWall, ladderProps;
-let hero,platform,platform2, test;
+let ground, roof, lWall, rWall;
+let hero;
 let breakablePlatforms = [];
 
 let playerDead = false, lives = 3;
@@ -56,59 +61,109 @@ let grappleSpawnerProps, grappleSpawner = {deleted:true}, grappleSpawnFlag = fal
 let reEnableGrappleDeploying = false;
 
 let delayBalloonSpawn = false;
-// let entityTypes['balloon'] = [];
 let balloons = [];
 let balloonQueue = [];
-let balloonSizes = [BALLOON_BASE_SIZE];
-for(let i = 1; i < BALLOON_SIZES; ++i)
-{
-    balloonSizes[i] = BALLOON_SIZES * (2**i);
-}
-let balloonsToPop = (2 ** 4) - 1;
+
 
 initialize = () =>
 {
     setB2DContactListener(listener);
-    setEngineRenderModes("easel", "debug");
+    addRenderer((context)=>
+        {
+            setHudScore(score);
+            setHudTime(Math.floor(time));
+        }, "hud"
+    );
+    setEngineRenderTargets([ctx, ctx2, ctx]);
+    setEngineRenderModes(["easel", "debug", "hud"]);
 
+    if(loadSaveFlag)
+    {
+        score = savePoint.score;
+        lives = savePoint.lives;
+        currentLevel = savePoint.level - 1;
+    }
     
     if(loadedLevels[currentLevel] != null)
     {
         initLevel(loadedLevels[currentLevel]);
-        levelNeedsInitialised = false;
         gameReady = true;
     }
 
-    //TODO: Items need some changes to work with levels
-    //TODO: factor this out somewhere... probably asset metadata
-    playerScale = 1.5;
+    updateHealthBar(lives);
 
     initializeKeyboard(
         {
-            up:    [87, 38],
-            left:  [65, 37],
-            right: [68, 39],
-            down:  [83, 40],
-            space: [32],
-            pause: [27]
+            up:    [87, 38],  // ↑ or W
+            left:  [65, 37],  // ← or A
+            down:  [83, 40],  // ↓ or S
+            right: [68, 39],  // → or D
+            space: [32],      // SPACE
+            pause: [27],      // ESC
+            debug: [115, 223] // ` or F4
         }
     );
+
+    registerInputCallback("left", "down",() =>
+    {
+        hero.easel.scaleX = -heroScaleX;
+        hero.easel.gotoAndPlay("walk");
+    });
+    registerInputCallback("left", "up",() =>
+    {
+        if(!keyboardState.right)
+        {
+            hero.easel.scaleX = -heroScaleX;
+            hero.easel.gotoAndPlay("idle");
+        }
+        else
+            hero.easel.scaleX = heroScaleX;
+    });
+    registerInputCallback("right", "down",() =>
+    {
+        hero.easel.scaleX = heroScaleX;
+        hero.easel.gotoAndPlay("walk");
+    });
+    registerInputCallback("right", "up",() =>
+    {
+        if(!keyboardState.left)
+        {
+            hero.easel.scaleX = -heroScaleX;
+            hero.easel.gotoAndPlay("idle");
+        }
+        else
+            hero.easel.scaleX = -heroScaleX;
+    });
+    registerInputCallback("debug", "edge", () =>
+    {
+        toggleCanvasDisplayed();
+    });
 };
 
-function toggleGamePaused()
+function setGamePaused(value)
 {
-    paused = !paused;
-    togglePhysicsPaused();
+    if(!value)
+    {
+        setEnginePaused(false);
+        setPhysicsPaused(true);
+    }
+    else
+    {
+        setEnginePaused(true);
+        paused = true
+    }
 }
 
 function initLevel(levelData)
 {
-    //TODO:
-    // Init Assets
-    // for each asset
-    //     globalAssets["id"] = asset;
+    
+    for(let key in levelData.assets)
+    {
+        assets[key] = levelData.assets[key];
+    }
 
     // Spawn Entities
+    createEntity(entityTypes["background"]);
     let props = structuredClone(entityTypes['edge']);
     lWall = createEntity(props);
     props.x = WIDTH;
@@ -136,6 +191,7 @@ function initLevel(levelData)
             entityTypes['hero'].x = e.x;
             entityTypes['hero'].y = e.y;
             hero = createEntity(entityTypes['hero']);
+            hero.easel.scaleX = -(heroScaleX = hero.easel.scaleX);
         }
     }
     balloonsToPop = levelData.balloonsToPop;
@@ -151,6 +207,7 @@ function createGrappleSpawner(pos)
     entityTypes['grapple'].y = entityTypes['grappleSpawn'].y;
     entityTypes['grapple_tip'].x = entityTypes['grappleSpawn'].x;
     entityTypes['grapple_tip'].y = entityTypes['grappleSpawn'].y;
+    assets['whistle_sound'].play();
 }
 
 function spawnGrapple(tip = false)
@@ -283,7 +340,7 @@ function popBalloon(balloon)
             yVel = -2;
         else
             yVel = -2;
-        let off = balloonSizes[stage];
+        let off = entityTypes["balloon"][stage].radius;
         let yPos = position.y * SCALE - off;
         let x1 = position.x * SCALE + off, x2 = position.x * SCALE - off;
         queueBalloonForSpawn(x1,yPos,5,yVel, stage - 1);
@@ -291,6 +348,7 @@ function popBalloon(balloon)
     }
     score += SCORE_BASE * (2 ** (3 - stage));
     balloonsToPop--;
+    createjs.Sound.play("pop" + (stage+1) + "_sound");
     deleteEntity(balloon);
     balloon.deleted = true;
     if(Math.floor(Math.random()* 40) < 5)
@@ -301,6 +359,7 @@ function popBalloon(balloon)
 
 function despawnGrapple()
 {
+    assets['whistle_sound'].stop();
     if(grappleSpawner.deleted)
         return;
     else
@@ -316,11 +375,34 @@ function despawnGrapple()
     grappleSpawning = false;
 }
 
+function saveState()
+{
+    savePoint =
+    {
+        score: score,
+        level: currentLevel + 1,
+        lives: lives
+    };
+
+    saveStore.setItem("save_state_" + userID, JSON.stringify(savePoint));
+}
+
 function nextLevel()
 {
     score += 10 * Math.floor(time);
     score += 1000 * lives;
+    ++currentLevel;
+    if(currentLevel == loadedLevels.length)
+    {
+        gameOver = true;
+        gameWon = true;
+        setContinueButtonVisibility(false);
+        saveStore.removeItem("save_state_" + userID);
+        return true;
+    }
+    saveState();
     restartLevel();
+    return false;
 }
 
 function restartLevel()
@@ -334,15 +416,17 @@ function restartLevel()
     time = 1000;
 
     deleteAllEntities();
+    setGamePaused(false);
+    setHudLevel(loadedLevels[currentLevel].name);
     initLevel(loadedLevels[currentLevel]);
 }
 
 function restartGame()
 {
-    submitScore();
-    restartLevel();
     score = 0;
-    lives = 3;
+    updateHealthBar(lives = 3);
+    currentLevel = 0;
+    restartLevel();
 }
 
 
@@ -351,17 +435,33 @@ update = () => {
     if(!gameReady)
         if(loadedLevels[currentLevel] == null) 
             return;
-        else 
+        else
+        {
+            initLevel(loadedLevels[currentLevel]);
             gameReady = true;
+        }
 
     if(paused) return;
 
-
-    ctx.font = "32px Arial";
-    ctx.fillStyle = "#606060";
-    ctx.fillText("Score: " + score,15,35);
-    ctx.fillText("Time: " + Math.floor(time),625,35);
-    ctx.fillText("Lives: " + lives,15,565);
+    if(gameOver)
+    {
+        if(gameWon)
+        {
+            setPopupHeading("You Won!");
+            setPopupMessage("Well done! You have completed every level and completed the game! But who is the greatest of them all!? Check the highscores to find out!");
+        }
+        else
+        {
+            setPopupHeading("You Lost!");
+            setPopupMessage("Well, well, well, another day, another snarky message.. Maybe one day you will ascend, but for now you will have to settle for this mighty score..");
+        }
+        setContinueButtonVisibility(false);
+        submitScore();
+        setPopupScore(score);
+        setGamePaused(true);
+        showPopup();
+        return;
+    }
     let movVer = false, movHor = false;
 
     time -=0.4;
@@ -369,7 +469,7 @@ update = () => {
 
     if(keyboardState.pause)
     {
-        toggleEnginePaused();
+        setEnginePaused(true);
         showPauseMenu();
     }
 
@@ -391,18 +491,24 @@ update = () => {
 
     if(balloonsToPop == 0)
     {
-        nextLevel();
+        if(nextLevel())
+            return;
     }
     if(playerDead)
     {
-        lives--;
+        updateHealthBar(--lives);
         playerDead = false;
         if(lives == 0)
         {
-            restartGame();
+            saveStore.removeItem("save_state_" + userID);
+            setContinueButtonVisibility(false);
+            gameOver = true;
+            gameWon = false;
         }
         else
         {
+            setContinueButtonVisibility(true);
+            saveState();
             restartLevel();
         }
     }
@@ -435,10 +541,7 @@ update = () => {
         {
             heroMovingRight = true;
             heroMovingLeft = false;
-            hero.easel.scaleX = playerScale;
-            hero.easel.gotoAndPlay("walk");
         }
-        ctx.fillText("D",774,60);
         let vel = hero.b2d.GetBody().GetLinearVelocity();
         vel.x = Math.min(vel.x + 2, 10);
         hero.b2d.GetBody().SetLinearVelocity(vel);
@@ -450,10 +553,7 @@ update = () => {
         {
             heroMovingLeft = true;
             heroMovingRight = false;
-            hero.easel.scaleX = -playerScale;
-            hero.easel.gotoAndPlay("walk");
         }
-        ctx.fillText("A",714,60);
         let vel = hero.b2d.GetBody().GetLinearVelocity();
         vel.x = Math.max(vel.x - 2, -10);
         hero.b2d.GetBody().SetLinearVelocity(vel);
@@ -492,7 +592,6 @@ update = () => {
             heroMovingLeft = false;
             heroMovingRight = false;
             vel.x = 0;
-            hero.easel.gotoAndPlay("idle");
         }
         if(!movVer && onLadder > 0)
             vel.y = 0;
@@ -545,26 +644,28 @@ function loadGameData(items)
                 entityTypes[name] = createEntityProperties(props);
             }
         }
-        else if(items[i].item.type == "sound")
-        {
-            assets[id] = createjs.Sound.createInstance(id);
-        }
-        else
+        // Sounds are internally processed by preloadjs
+        else if(items[i].item.type != "sound")
         {
             assets[id] = items[i].result;
         }
     }
 
-    // within the metadata for assets that can contain multiple images
+    // Within the metadata for assets that can contain multiple images
     // we must replace the asset ids of images with the actual image 
     // data. This is mostly for SpriteSheets.
     //
     // We could do this in the upper loop only if we can guarantee that
     // all required assets appear before the metadata in "items". I could
-    // ensure that the manifests load in that order but it's very fragile.
-    for(let i in assetMetaData)
+    // ensure the manifest loads in that order but that's very fragile.
+    for(let key in assetMetaData)
     {
-        let asset = assetMetaData[i];
+        let asset = assetMetaData[key];
+        if(asset.type == "sound")
+        {
+            if(asset.singleInstance)
+                assets[key] = createjs.Sound.createInstance(key);
+        }
         if(asset.images == null)
             continue;
 
@@ -585,9 +686,34 @@ function loadGameData(items)
         entityTypes['balloon'][e.userData.stage] = structuredClone(e);
     }
 }
+
+function startMusic()
+{
+    let currentTrack = 0;
+    let looper = () =>
+    {
+        window.setTimeout(()=>
+        {
+            bgMusicTrack = assets["bg_track_" + (++currentTrack+1)];
+            bgMusicTrack.play();
+            bgMusicTrack.volume = bgMusicVolume;
+            currentTrack %= 4;
+        }, 3000);
+    }
+
+    for(let i = 0; i < 5; ++i)
+    {
+        assets['bg_track_' + (i + 1)].addEventListener("complete", looper);
+    }
+
+    bgMusicTrack = assets["bg_track_1"]
+    bgMusicTrack.play();
+    bgMusicTrack.volume = bgMusicVolume;
+}
     
 function submitScore()
 {
+    let scoreCopy = structuredClone(score);
     //Create the request.
     let url = './backend/add_highscore.php';
     let request = new XMLHttpRequest();
@@ -601,12 +727,10 @@ function submitScore()
 
         if(request.status != 200)
             console.error(request.responseText);
-        else
-            console.log(request.responseText);
     };
 
     // Prepare data and send request.
-    let params = 'score=' + score;
+    let params = 'score=' + scoreCopy;
     request.send(params);
 }
 
@@ -628,7 +752,13 @@ listener.BeginContact = function(contact)
     {
         ++onLadder;
     }
-    else if((fixa=="item" && fixb == "hero") || (fixa=="hero" && fixb=="item"))
+    else if(fixa=="shield_item" && fixb == "hero")
+    {
+        deleteEntity(item);
+        if(!shielded)
+            shielded = true;
+    }
+    else if(fixa=="hero" && fixb=="shield_item")
     {
         deleteEntity(item);
         if(!shielded)
@@ -643,8 +773,8 @@ listener.BeginContact = function(contact)
                 grappleSections[i].b2d.GetBody().SetLinearVelocity(new b2Vec2(0,0));
             }
             grappleDeploying = false;
+            assets['whistle_sound'].stop();
         }
-        //grappleSections[0].SetLinearVelocity(new b2Vec2(0,0));
     }
     else if((fixa=="grapple_tip" && fixb == "platform") || (fixa=="platform" && fixb=="grapple_tip"))
     {
@@ -657,6 +787,7 @@ listener.BeginContact = function(contact)
                     grappleSections[i].b2d.GetBody().SetLinearVelocity(new b2Vec2(0,0));
                 }
                 grappleDeploying = false;
+                assets['whistle_sound'].stop();
             }
             else
             {
@@ -741,22 +872,53 @@ listener.PreSolve = function(contact, oldManifold)
     let fixb=contact.GetFixtureB().GetBody().GetUserData().id;
 }
 
-setUnPauseCallback(()=>{ window.setTimeout(toggleEnginePaused,300); });
+setUnPauseCallback(()=>{ window.setTimeout(()=>setEnginePaused(false),300); });
+
+setLevelAnimateCallback(()=>{window.setTimeout(()=>{setPhysicsPaused(false); paused=false;},300);});
+
+setPopupClosedCallback(()=>
+    {
+        gameOver = false;
+        gameWon = false;
+        saveStore.removeItem("save_state_" + userID);
+    });
 
 setMenuItemHoverCallback(()=>
     {
         if(!gameReady) return;
-        assets["tick_sound"].stop(); //<- Needed..?
         assets["tick_sound"].play();
     });
 
-setNewGameCallback(()=>{
-    togglePhysicsPaused();
-    toggleGamePaused(); 
-    // 300 + (countdown 3,2,1,go == 300 * 3) == 1500
-    // -150ms so there's a slight overlap between go
-    // fading and the game starting...
-    window.setTimeout(togglePhysicsPaused,1350);
+setNewGameCallback(()=>
+{
+    if(!musicStarted)
+    {
+        musicStarted = true;
+        startMusic();
+    }
+
+    loadSaveFlag = false;
+    restartGame();
+});
+
+setContinueCallback(()=>{
+    if(!musicStarted)
+    {
+        musicStarted = true;
+        startMusic();
+    }
+    // This first part is for an edge case where a user accidentally
+    //  clicks new game then quits before dying, their save is intact. 
+    savePoint = JSON.parse(saveStore.getItem("save_state_" + userID));
+
+    if(savePoint != null)
+        loadSaveFlag = true;
+
+    score = savePoint.score;
+    lives = savePoint.lives;
+    currentLevel = savePoint.level - 1;
+    updateHealthBar(lives);
+    restartLevel();
 });
 
 setQuitGameCallback(()=>
@@ -765,39 +927,55 @@ setQuitGameCallback(()=>
         // reset the game to the current level and pause the game
         window.setTimeout(()=>
             {
-                toggleEnginePaused();
+                setGamePaused(true);
                 restartGame();
-                toggleGamePaused();
             },600);
     });
 
 
-toggleGamePaused();
+setGamePaused(true);
 
-levelLoadQueueStore = new createjs.LoadQueue(true);
-levelLoadQueueStore.installPlugin(createjs.Sound);
-levelLoadQueueStore.addEventListener("complete",(e) =>
+// We keep trying to load levels until
+//  we can't find a file and fail.
+var loadingLevels = true;
+levelLoadQueue = new createjs.LoadQueue(true);
+levelLoadQueue.installPlugin(createjs.Sound);
+levelLoadQueue.addEventListener("error", (e) =>
     {
-        if(parseLevel(levelLoadQueueStore.getItems(true)) == false)
-            console.error("Failed to parse level");
-        else
-            console.log("Parsed level successfully");
-        levelLoadQueueStore.removeAll();
+        loadingLevels = false;
     }
 );
-levelLoadQueueStore.loadManifest("assets/levels/1/manifest.json");
 
-levelLoadQueueImmediate = new createjs.LoadQueue(true);
-levelLoadQueueImmediate.installPlugin(createjs.Sound);
-levelLoadQueueImmediate.addEventListener("complete",(e) =>
+levelLoadQueue.addEventListener("complete",(e) =>
     {
-        if(parseAndInitLevel(levelLoadQueueImmediate.getItems(true)) == false)
-            console.error("Failed to parse level");
-        else
-            console.log("Parsed level successfully");
-        levelLoadQueueImmediate.removeAll();
+        let level = parseLevel(levelLoadQueue.getItems(true));
+        if(level != false)
+            console.log("Parsed level " + (level.ID + 1) + " successfully");
+
+        levelLoadQueue.removeAll();
+
+
+        if(loadingLevels)
+        {
+            let i = 0; 
+            while(loadedLevels[i] != null) 
+                ++i;
+            
+            levelLoadQueue.loadManifest("assets/levels/" + 
+                        (i + 1) + "/manifest.json");
+        }
     }
 );
+
+savePoint = JSON.parse(saveStore.getItem("save_state_" + userID));
+if(savePoint == null)
+    levelLoadQueue.loadManifest("assets/levels/1/manifest.json");
+else
+{
+    setContinueButtonVisibility(true);
+    levelLoadQueue.loadManifest("assets/levels/" + savePoint.level + "/manifest.json");
+    loadSaveFlag = true;
+}
 
 
 (() => {

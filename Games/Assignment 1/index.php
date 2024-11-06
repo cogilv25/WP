@@ -17,6 +17,12 @@
         <!-- Stylesheet -->
         <link rel="stylesheet" href="style.css">
         <?php if($authd) { ?>
+
+        <!-- TODO: Maybe we should use some form of regenerating token -->
+        <!--       here for security but the userID will do for now.. -->
+        <!-- Pass the userID to javascript for localStorage retrieval -->
+        <script>var userID = <?=$_SESSION['user']?>;</script>
+
         <!-- Flow control / Website -->
         <script src="./js/site.js" defer></script>
 
@@ -31,6 +37,7 @@
         <script src="./js/api/engine.js" defer></script>
         <script src="./js/api/level.js" defer></script>
         <script src="./js/api/keyboard.js" defer></script>
+        <script src="./js/api/saveStore.js" defer></script>
 
         <!-- Game -->
         <script src="./js/game.js" defer></script>

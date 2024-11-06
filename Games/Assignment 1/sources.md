@@ -9,3 +9,4 @@
 
 # CSS Styling
 - [Normalize.css](https://necolas.github.io/normalize.css/)
+- [Loading Spinner](https://loading.io/css/)

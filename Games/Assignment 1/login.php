@@ -11,9 +11,9 @@
             <div style="display: flex; flex-direction: row; justify-content: center;">
                 <div style="width: 40%; display: flex; flex-direction: column;">
                     <a href="?provider=Discord"><img style="margin-bottom: 10px; width: 100%" src="./assets/oauth/discord.png"></a>
-                    <a href="?provider=GitHub"><img style="margin-bottom: 10px; width: 100%" src="./assets/oauth/discord.png"></a>
+                    <a href="?provider=GitHub"><img style="margin-bottom: 10px; width: 100%" src="./assets/oauth/github.png"></a>
                     <a href="?provider=Amazon"><img style="margin-bottom: 10px; width: 100%" src="./assets/oauth/amazon.png"></a>
-                    <a href="?provider=Google"><img style="margin-bottom: 10px; width: 100%" src="./assets/oauth/discord.png"></a>
+                    <a href="?provider=Google"><img style="margin-bottom: 10px; width: 100%" src="./assets/oauth/google.png"></a>
                 </div>
             </div>
         </div>
