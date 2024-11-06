@@ -1,0 +1,252 @@
+<!DOCTYPE html>
+<html>
+	<head>
+		<title>The Tower</title>
+		<link rel="stylesheet" href="normalize.css">
+		<link rel="stylesheet" href="style.css">
+		<script src="/socket.io/socket.io.js"></script>
+		<script src="https://code.createjs.com/1.0.0/easeljs.min.js"></script>
+	</head>
+	<body style="display: flex; flex-direction: column">
+		<div id="main_menu">
+			<h1> Join or Create a Lobby </h1>
+			<div id="lobbies">
+			</div>
+			<div id="lobby_creator_area">
+				<div id="lobby_creator_transition"></div>
+				<div id="lobby_creator_container">
+					<form id="lobby_creator">
+						<input id="lobby_name" maxlength=20>
+						<div id="vr"></div>
+						<button id="create_lobby" type="submit">Create Lobby</button>
+					</form>
+				</div>
+			</div>
+		</div>
+		<div id="game_view" style="display: none;">
+			<canvas id="canvas" width="800" height="600"></canvas>
+		</div>
+		<script>
+			// Pass these over when first connecting or via XHR..?
+			var entityTypes = [];
+			entityTypes['ball'] = 
+			{
+				density: 0.5,
+				friction: 0.5,
+				restitution: 0.5,
+				x: 0, y:0,
+				rotation: 0,
+				radius: 10,
+				type: "dynamic",
+				shape: "circle"
+			};
+			entityTypes['wall'] = 
+			{
+				density: 0.5,
+				friction: 0.5,
+				restitution: 0.5,
+				x: 0, y: 0,
+				rotation: 0,
+				width: 8,
+				height: 600,
+				type: "static",
+				shape: "rect"
+			};
+			entityTypes['floor'] = 
+			{
+				density: 0.5,
+				friction: 0.5,
+				restitution: 0.5,
+				x: 0, y: 0,
+				rotation: 0,
+				width: 800,
+				height: 8,
+				type: "static",
+				shape: "rect"
+			};
+
+			let stage;
+			let entities = [];
+
+			let gameStarted = false;
+			let lobbies = [];
+			let socket = io();
+			socket.on("connect", () => {
+				console.log(socket.id);
+			});
+
+			let lc = document.getElementById("lobby_creator");
+			let ln = document.getElementById("lobby_name");
+			let createLobbyButton = document.getElementById("create_lobby");
+			let mainMenu = document.getElementById("main_menu");
+			let gameView = document.getElementById("game_view");
+			let canvas = document.getElementById("canvas");
+
+			let lobbyList = document.getElementById("lobbies");
+			ln.addEventListener("keypress", () =>
+				{
+					if(ln.value.length == ln.maxLength)
+					{
+						lc.classList.add("invalid_lobby");
+					}
+				});
+			lc.addEventListener("animationend", () => 
+				{
+					lc.classList.remove("invalid_lobby"); 
+				});
+
+			lc.addEventListener("submit", (e) => 
+				{
+					e.preventDefault();
+					if(ln.value.length < 5)
+					{
+						lc.classList.add("invalid_lobby");
+						return;
+					}
+
+					socket.emit("create_lobby", ln.value);
+					ln.value = "";
+				});
+
+			function renderLobbies()
+			{
+				lobbyList.textContent = "";
+				for(let i = 0; i < lobbies.length; ++i)
+				{
+					let l = document.createElement("div");
+					l.classList.add("lobby");
+					l.textContent = lobbies[i].name;
+					let s = document.createElement("span");
+					s.textContent = "(" + lobbies[i].players + " / 2)";
+					l.appendChild(s);
+					l.addEventListener("click", () => 
+						{
+							joinLobby(i);
+						});
+					lobbyList.appendChild(l);
+				}
+			}
+
+			function createEntity(props)
+			{
+				let g = new createjs.Graphics();
+				g.setStrokeStyle(1);
+				let rx,ry;
+				if(props.shape == "circle")
+				{
+					g.beginStroke(createjs.Graphics.getRGB(0,0,0));
+					g.beginFill(createjs.Graphics.getRGB(255,0,0));
+					g.drawCircle(0, 0, props.radius);
+					rx = 0;
+					ry = rx;
+				}
+				else
+				{
+					g.beginStroke(createjs.Graphics.getRGB(0,0,0));
+					g.beginFill(createjs.Graphics.getRGB(0,0,255));
+					g.rect(0, 0, props.width, props.height);
+					rx = props.width / 2;
+					ry = props.height / 2;
+				}
+
+				let s = new createjs.Shape(g);
+				s.x = props.x;
+				s.y = props.y;
+				s.regX = rx;
+				s.regY = ry;
+
+				stage.addChild(s);
+				stage.update();
+				return s;
+			}
+
+			function initializeWorld(state)
+			{
+				for(let i = 0; i < state.length; ++i)
+				{
+					let template = state[i];
+					let props = structuredClone(entityTypes[template.game_type]);
+					for([k, v] of Object.entries(template))
+					{
+						props[k] = v;
+					}
+					entities.push(createEntity(props));
+				}
+			}
+
+			function joinLobby(index)
+			{
+				socket.emit("join_lobby", lobbies[index].name);
+			}
+
+
+			socket.on("joined_world", (state) =>
+			{
+				console.log(state);
+				initializeWorld(state);
+				mainMenu.style.display = "none";
+				gameView.style.display = "flex";
+				// hideMainMenu();
+				// showWorld();
+				gameStarted = true;
+			})
+
+			socket.on("lobby_dissolve", (lobby) => 
+				{
+					lobbies.splice(lobbies.findIndex(
+						(a) => { return a.name === lobby.name; })
+					, 1);
+					renderLobbies();
+				});
+
+			socket.on("lobby_update", (lobby) =>
+				{
+					lobbies[lobbies.findIndex(
+						(a) => { return a.name === lobby.name; }
+					)] = lobby;
+					renderLobbies();
+				});
+
+			socket.on("game_update", (update) =>
+			{
+				if(!gameStarted) return;
+				//console.log(update);
+
+				// No Point in updating the stage unless
+				//    there's something to update!
+				for(let i = 0; i < update.length; ++i)
+				{
+					entities[update[i].id].x = update[i].x;
+					entities[update[i].id].y = update[i].y;
+				}
+				stage.update();
+			});
+
+			socket.on("player_joined", (player) =>
+				{
+					
+				});
+
+			socket.on("invalid_lobby", () =>
+				{
+					lc.classList.add("invalid_lobby");
+				});
+
+			socket.on("lobby_created", (lobby) =>
+				{
+					lobbies.push(lobby);
+					renderLobbies();
+				});
+
+
+			socket.on("lobby_list", (newLobbies) =>
+				{
+					lobbies = newLobbies;
+					renderLobbies();
+				});
+
+			stage = new createjs.Stage(canvas);
+			stage.snapPixelsEnabled = true;
+		</script>
+	</body>
+</html>
