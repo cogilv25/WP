@@ -28,7 +28,7 @@ button
 	text-shadow: none;
 	outline: none;
 	border: solid 2px #000;
-	border-radius: 0px 10px 10px 0px;
+	border-radius: 10px 10px 10px 10px;
 	box-sizing: border-box;
 	vertical-align: top;
 	margin-left: 0;
@@ -96,6 +96,13 @@ input:hover
 	border: solid 1px transparent;
 	border-radius: 0px 8px 8px 0px;
 	width: 234px;
+	border-radius: 0px 10px 10px 0px;
+}
+
+#lobby_view
+{
+	display: flex;
+	flex-direction: column;
 }
 
 #lobby_name
@@ -160,7 +167,7 @@ input:hover
 	z-index: 1;
 }
 
-.invalid_lobby
+.invalid_lobby, .invalid_login
 {
 	animation: tilt-shaking 0.2s;
 	border-color: #f00 !important;
@@ -188,4 +195,52 @@ input:hover
 	left: 50%;
 	margin-left: -400px;
 	top: 30%;
+}
+
+.auth_selected, .auth_unselected
+{
+	cursor: pointer;
+}
+
+.auth_selected
+{
+	text-decoration: underline;
+}
+
+.auth_unselected
+{
+	color: #999;
+	transform: scale(0.25);
+}
+
+.auth_unselected:hover, .auth_selected:hover
+{
+	color: #fff;
+	transform: scale(1.1);
+}
+
+#auth_form
+{
+	display: flex;
+	flex-direction: column;
+	align-items: center;
+	justify-content: space-around;
+	align-items: center;
+	border: solid 4px #80c;
+	box-shadow: 0px 0px 10px 10px #80c;
+	border-radius: 10px;
+	width: 600px;
+	height: 400px;
+}
+.invalid_login
+{
+	box-shadow: 0px 0px 10px 10px #f00 !important;
+}
+
+#main_menu
+{
+	display: flex;
+	flex-direction: column;
+	align-items: center;
+	margin-top: 100px;
 }

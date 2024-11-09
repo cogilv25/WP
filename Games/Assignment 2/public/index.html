@@ -9,17 +9,26 @@
 	</head>
 	<body style="display: flex; flex-direction: column">
 		<div id="main_menu">
-			<h1> Join or Create a Lobby </h1>
-			<div id="lobbies">
+			<div id="auth_view">
+				<form id="auth_form">
+					<h1> <span id="login_button" class="auth_selected">Login</span> or <span id="register_button" class="auth_unselected">Register</span></h1>
+					<input id="username" type="text" autocomplete="off" placeholder="Username" maxlength="32">
+					<input id="password" type="password" placeholder="Password" maxlength="32">
+					<button style="width: 155px" id="auth_button" type="submit">Login</button>
+				</form>
 			</div>
-			<div id="lobby_creator_area">
-				<div id="lobby_creator_transition"></div>
-				<div id="lobby_creator_container">
-					<form id="lobby_creator">
-						<input id="lobby_name" maxlength=20>
-						<div id="vr"></div>
-						<button id="create_lobby" type="submit">Create Lobby</button>
-					</form>
+			<div id="lobby_view" style="display: none;">
+				<h1> Join or Create a Lobby </h1>
+				<div id="lobbies"></div>
+				<div id="lobby_creator_area">
+					<div id="lobby_creator_transition"></div>
+					<div id="lobby_creator_container">
+						<form id="lobby_creator">
+							<input id="lobby_name" autocomplete="off" maxlength=20>
+							<div id="vr"></div>
+							<button id="create_lobby" type="submit">Create Lobby</button>
+						</form>
+					</div>
 				</div>
 			</div>
 		</div>
@@ -77,10 +86,77 @@
 
 			let lc = document.getElementById("lobby_creator");
 			let ln = document.getElementById("lobby_name");
+			let lv = document.getElementById("lobby_view");
 			let createLobbyButton = document.getElementById("create_lobby");
 			let mainMenu = document.getElementById("main_menu");
 			let gameView = document.getElementById("game_view");
 			let canvas = document.getElementById("canvas");
+			let loginButton = document.getElementById("login_button");
+			let registerButton = document.getElementById("register_button");
+			let authView = document.getElementById("auth_view");
+			let authForm = document.getElementById("auth_form");
+			let authButton = document.getElementById("auth_button");
+			let username = document.getElementById("username");
+			let password = document.getElementById("password");
+
+			let loginFormEvent = "login";
+
+			loginButton.addEventListener("click", () =>
+				{
+					loginButton.classList.add("auth_selected");
+					loginButton.classList.remove("auth_unselected");
+					registerButton.classList.add("auth_unselected");
+					registerButton.classList.remove("auth_selected");
+					loginFormEvent = "login";
+					authButton.textContent = "Login";
+				});
+
+			registerButton.addEventListener("click", () =>
+				{
+					registerButton.classList.add("auth_selected");
+					registerButton.classList.remove("auth_unselected");
+					loginButton.classList.add("auth_unselected");
+					loginButton.classList.remove("auth_selected");
+					loginFormEvent = "register";
+					authButton.textContent = "Register";
+				});
+
+			authForm.addEventListener("animationend", () =>
+				{
+					authForm.classList.remove("invalid_login");
+				});
+
+			username.addEventListener("keypress", () =>
+				{
+					if(username.value.length == username.maxLength)
+					{
+						authForm.classList.add("invalid_login");
+					}
+				});
+
+			password.addEventListener("keypress", () =>
+				{
+					if(password.value.length == password.maxLength)
+					{
+						authForm.classList.add("invalid_login");
+					}
+				});
+
+			authForm.addEventListener("submit", (e) =>
+				{
+					e.preventDefault();
+					if(username.value.length < 5 || password.value.length < 5)
+					{
+						// TODO: notification
+						authForm.classList.add("invalid_login");
+						return;
+					}
+					socket.emit(loginFormEvent, 
+						{
+							username: username.value,
+							password: password.value
+						});
+				});
 
 			let lobbyList = document.getElementById("lobbies");
 			ln.addEventListener("keypress", () =>
@@ -117,7 +193,7 @@
 					l.classList.add("lobby");
 					l.textContent = lobbies[i].name;
 					let s = document.createElement("span");
-					s.textContent = "(" + lobbies[i].players + " / 2)";
+					s.textContent = "(" + lobbies[i].players.length + " / 2)";
 					l.appendChild(s);
 					l.addEventListener("click", () => 
 						{
@@ -181,15 +257,30 @@
 
 
 			socket.on("joined_world", (state) =>
-			{
-				console.log(state);
-				initializeWorld(state);
-				mainMenu.style.display = "none";
-				gameView.style.display = "flex";
-				// hideMainMenu();
-				// showWorld();
-				gameStarted = true;
-			})
+				{
+					console.log(state);
+					initializeWorld(state);
+					mainMenu.style.display = "none";
+					gameView.style.display = "flex";
+					// hideMainMenu();
+					// showWorld();
+					gameStarted = true;
+				});
+
+			socket.on("logged_in", (remoteLobbies) =>
+				{
+					console.log("Logged In!");
+					lv.style.display = "flex";
+					authView.style.display = "none";
+					lobbies = remoteLobbies;
+					renderLobbies();
+				});
+
+			socket.on("invalid_login", (error) =>
+				{
+					// TODO: notifications top-right
+					console.error(error);
+				});
 
 			socket.on("lobby_dissolve", (lobby) => 
 				{
@@ -210,7 +301,7 @@
 			socket.on("game_update", (update) =>
 			{
 				if(!gameStarted) return;
-				//console.log(update);
+				console.log(update);
 
 				// No Point in updating the stage unless
 				//    there's something to update!
@@ -227,9 +318,10 @@
 					
 				});
 
-			socket.on("invalid_lobby", () =>
+			socket.on("invalid_lobby", (message) =>
 				{
 					lc.classList.add("invalid_lobby");
+					console.log(message);
 				});
 
 			socket.on("lobby_created", (lobby) =>
