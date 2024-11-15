@@ -44,27 +44,27 @@ let players = [];
 //    seperate modules that don't need to interact?
 let games = [];
 
-function initialize(threads)
+function initialize(stage = 0, threads)
 {
-	// Why is it so hard to just do things sequentially
-	//    in javascript!
-
-	if(threads == -2)
+	// Event driven is painful when you want
+	//    procedural execution.
+	if(stage == 0)
 	{
 		console.log("Initializing Server...");
+		let initialState = { TICK_RATE: 60, SCALE: 30 };
+		worldss.initialize(initialState, (t) => { initialize(1, t); } );
+		return;
+	}
+	else if(stage == 1)
+	{
 		let callbacks = 
 		[
 			lobbyRequestWorld,
 			lobbyReturnWorld,
-			() => { initialize(-1); }
+			clientInitWorld,
+			() => { initialize(2, threads); }
 		];
-		clients.initialize(callbacks);
-		return;
-	}
-	if(threads == -1)
-	{
-		let initialState = {gravity: {x: 0, y: 9.81}, TICK_RATE: 60, SCALE: 30};
-		worldss.initialize(initialState, initialize);
+		clients.initialize(callbacks, threads);
 		return;
 	}
 
@@ -78,16 +78,15 @@ function initialize(threads)
 }
 
 function updateClients(worldId, update)
-{
-	// TODO: this is slower than I'd like..
-	let gameIndex = games.findIndex((a)=>{ return a.world == worldId; });
-	if(gameIndex == -1) return;
-	
-	let clientList = clients.getClientsInLobby(games[gameIndex].lobby);
-	//console.log("Client List:");
-	//console.log(clientList);
+{	
+	let clientList = clients.clients[worldId];
+	// This is normal in real world but I want to be notified while testing
+	// TODO: Remove.
+	if(clientList.length == 0)
+		console.log("Temporary Error: No clients!?");
+
 	for(let i = 0; i < clientList.length; ++i)
-			clientList[i].emit("game_update", update);
+			clientList[i].emit("u", update);
 }
 
 function startServer()
@@ -97,11 +96,6 @@ function startServer()
 		console.log("listening on *:8000\n\n");
 	});
 }
-
-// TODO: When a client disconnects we should set a timer before their
-//    player is removed from any lobbies they were in. Admin of a lobby
-//    should be able to kick the inactive player before this though!
-
 
 app.use(express.static(__dirname + "/public/"));
 
@@ -116,14 +110,7 @@ function lobbyRequestWorld(lobbyId, callback)
 		{
 			games.push({lobby: lobbyId, world: worldId});
 			let clientList = clients.getClientsInLobby(lobbyId);
-			worldss.getWorldState(worldId, (state) => 
-				{ 
-					for(let i = 0; i < clientList.length; ++i)
-					{
-						clientList[i].emit("joined_world", state);
-					}
-					callback(worldId);
-				});
+			callback(worldId);
 		});
 }
 
@@ -141,131 +128,22 @@ function lobbyReturnWorld(lobbyId)
 	games.splice(gameId, 1);
 }
 
+function clientInitWorld(worldId, callback)
+{
+	worldss.getWorldState(worldId, callback);
+}
+
 io.on("connection", (socket) =>
 {
 	let id = clients.newConnection(socket);
-	console.log(socket.id + " connected, assigned internal id: " + id);
-	socket.on("disconnect", () => { console.log(socket.id + " disconnected internal id: " + id); });
-	// connections.push({id: socket.id, socket: socket});
-	// let lobbyList = [];
-	// for(let i = 0; i < lobbies.length; ++i)
-	// 	lobbyList.push({name: lobbies[i].name, players: lobbies[i].players.length});
-	// socket.emit("lobby_list", lobbyList);
+	socket.on("input", (data) => {
+		let [playerId, worldId] = clients.getPlayerAndWorld(id);
+		if(playerId === false)
+			return;
 
-	// socket.on("disconnect", () =>
-	// {
-	// 	let index = connections.findIndex((a)=>{ return a.id===socket.id; });
-	// 	let lobby = connections[index].lobby;
-	// 	if(lobby)
-	// 	{
-	// 		// If last player remove the lobby
-	// 		// otherwise remove the player.
-	// 		if(lobby.players.length == 1)
-	// 		{
-	// 			console.log("Cleaning Up Lobby " + lobby.name);
-	// 			io.emit("lobby_dissolve", lobby.name);
-	// 			lobbies.splice(lobbies.findIndex(
-	// 				(a) => { return a === lobby; })
-	// 			, 1);
-	// 		}
-	// 		else
-	// 			lobby.players.splice(lobby.players.findIndex(
-	// 				(a)=> { return a.connection.id === socket.id; })
-	// 			, 1);
-	// 	}
-	// 	console.log(socket.id + " disconnected");
-	// 	connections.splice(index, 1);
-	// });
-
-	// socket.on("create_lobby", (name) => 
-	// {
-	// 	let index = connections.findIndex((a)=>{ return a.id===socket.id; });
-	// 	let connection = connections[index];
-
-	// 	if(connection.lobby)
-	// 	{
-	// 		socket.emit("invalid_lobby");
-	// 		return;
-	// 	}
-
-	// 	if(lobbies.findIndex((a)=>{ return a.name == name; }) >= 0)
-	// 	{
-	// 		socket.emit("invalid_lobby");
-	// 		return;
-	// 	}
-	// 	let world = -1;
-	// 	for(let i = 0; i < worlds.length; ++i)
-	// 	{
-	// 		if(worlds[i].state == WORLD_READY)
-	// 		{
-	// 			world = i;
-	// 			worlds[i].state = WORLD_RUNNING;
-	// 			break;
-	// 		}
-	// 	}
-	// 	console.log("Creating Lobby " + name);
-	// 	let lobby = {name: name, world: world, players: [{connection: connection}]};
-	// 	connection.lobby = lobby;
-	// 	console.log("user (" + connection.id + ") joined lobby " +  name);
-
-	// 	if(world >= 0)
-	// 	{
-	// 		console.log("Starting World " + (world + 1));
-	// 		worldss.startWorld(world, []);
-	// 		worlds[world].lobby = lobby;
-	// 		worldss.getWorldState(world, (state) => { socket.emit("joined_world", state); });
-	// 	}
-	// 	else
-	// 	{
-	// 		console.log("No Worlds Available, Joining Queue...");
-	// 	}
-
-	// 	lobbies.push(lobby);
-	// 	io.emit("lobby_created", {name: lobby.name, players: lobby.players.length});
-	// });
-
-	// socket.on("join_lobby", (name)=>
-	// {
-	// 	pid = clients.getPlayerId(socket);
-	// 	if(pid < 0)
-	// 	{
-	// 		socket.emit("invalid_join");
-	// 	}
-	// 	let index = lobbies.findIndex((a) => { return a.name == name })
-	// 	if(index < 0)
-	// 	{
-	// 		socket.emit("invalid_join");
-	// 		return;
-	// 	}
-	// 	let lobby = lobbies[index];
-	// 	if(lobby.players.length > 1)
-	// 	{
-	// 		socket.emit("invalid_join");
-	// 		return;
-	// 	}
-	// 	let connection = connections.find((a)=>{return a.id === socket.id});
-	// 	lobby.players.push({connection: connection});
-
-	// 	if(lobby.world >= 0)
-	// 		worldss.getWorldState(lobby.world, (state) => { socket.emit("joined_world", state); });
-	// 	io.emit("lobby_update", {name: lobby.name, players: lobby.players.length});
-	// });
-
-	// socket.on("login", (details) =>
-	// {
-	// 	if(clients.login(socket, details))
-	// 		socket.emit("logged_in", "TODO: List of Lobbies");
-	// 	else
-	// 		socket.emit("invalid_login");
-	// });
-
-	// socket.on("register", (details) =>
-	// {
-	// 	if(clients.register(socket, details))
-	// 		socket.emit("logged_in", "TODO: List of Lobbies");
-	// 	else
-	// 		socket.emit("invalid_register");
-	// });
+		data += playerId * 64;
+		worldss.handleInput(worldId, data);
+	})
 });
 
-initialize(-2);
+initialize();

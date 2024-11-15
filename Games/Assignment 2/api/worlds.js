@@ -99,7 +99,7 @@ exports.getWorldState = function(worldId, callback)
 	worlds[worldId].thread.postMessage({type: GET_STATE, id: stateRequestID++});
 };
 
-exports.sendInput = function(worldId, input)
+exports.handleInput = function(worldId, input)
 {
 	if(worlds[worldId].state != WORLD_STATES.WORLD_RUNNING) return false;
 
@@ -176,11 +176,9 @@ function handleWorkerMessage(id, message)
 	}
 	else if(message.type == GET_STATE)
 	{
-		console.log(stateRequestCallbacks);
 		let index = stateRequestCallbacks.findIndex((a)=>{ return a.id === message.id });
 		let callback = stateRequestCallbacks[index].callback;
 		stateRequestCallbacks.splice(index, 1);
-		console.log(callback); //Test Remove later
 		callback(message.state);
 	}
 }

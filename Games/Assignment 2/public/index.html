@@ -6,6 +6,7 @@
 		<link rel="stylesheet" href="style.css">
 		<script src="/socket.io/socket.io.js"></script>
 		<script src="https://code.createjs.com/1.0.0/easeljs.min.js"></script>
+		<script src="keyboard.js"></script>
 	</head>
 	<body style="display: flex; flex-direction: column">
 		<div id="main_menu">
@@ -74,6 +75,31 @@
 				shape: "rect"
 			};
 
+			entityTypes['player'] = 
+			{
+
+				density: 0.5,
+				friction: 0.5,
+				restitution: 0.0,
+				x: 400, y: 300,
+				rotation: 0,
+				width: 32,
+				height: 64,
+				type: "dynamic",
+				shape: "rect"
+			};
+
+			// Max value is 63 since we are using the 7th and 8th bits for
+			//    representing the player and input state.
+			let inputMap = 
+			{
+				up:    0,
+				left:  1,
+				right: 2,
+				down:  3,
+				jump:  4
+			};
+
 			let stage;
 			let entities = [];
 
@@ -99,7 +125,30 @@
 			let username = document.getElementById("username");
 			let password = document.getElementById("password");
 
+			let lastTick = performance.now();
+
 			let loginFormEvent = "login";
+
+			window.addEventListener("load", ()=>
+				{
+					initializeKeyboard(
+						{
+							up:    [87, 38],
+							left:  [65, 37],
+							right: [68, 39],
+							down:  [83, 40],
+							jump:  [32]
+						}, false
+					);
+					registerUniversalKeyboardCallback("edge", (input, state) =>
+					{
+						if(gameStarted)
+						{
+							socket.emit("input", inputMap[input] + (state ? 128 : 0));
+						}
+					});
+				});
+			
 
 			loginButton.addEventListener("click", () =>
 				{
@@ -226,10 +275,10 @@
 				}
 
 				let s = new createjs.Shape(g);
-				s.x = props.x;
-				s.y = props.y;
 				s.regX = rx;
 				s.regY = ry;
+				s.x = props.x;
+				s.y = props.y;
 
 				stage.addChild(s);
 				stage.update();
@@ -258,12 +307,9 @@
 
 			socket.on("joined_world", (state) =>
 				{
-					console.log(state);
 					initializeWorld(state);
 					mainMenu.style.display = "none";
 					gameView.style.display = "flex";
-					// hideMainMenu();
-					// showWorld();
 					gameStarted = true;
 				});
 
@@ -298,17 +344,24 @@
 					renderLobbies();
 				});
 
-			socket.on("game_update", (update) =>
+			socket.on("u", (update) =>
 			{
 				if(!gameStarted) return;
-				console.log(update);
+				//console.log(update);
 
+				let delta = performance.now() - lastTick;
+				console.log(1000 / delta);
+				lastTick = performance.now();
+
+				let buffer = new Uint16Array(update);
 				// No Point in updating the stage unless
 				//    there's something to update!
-				for(let i = 0; i < update.length; ++i)
+				for(let i = 0; i < buffer.length / 4; ++i)
 				{
-					entities[update[i].id].x = update[i].x;
-					entities[update[i].id].y = update[i].y;
+					let id = buffer[i * 4];
+					entities[id].x = buffer[i * 4 + 1];
+					entities[id].y = buffer[i * 4 + 2];
+					entities[id].rotation = buffer[i * 4 + 3] / (65536 / 360);
 				}
 				stage.update();
 			});

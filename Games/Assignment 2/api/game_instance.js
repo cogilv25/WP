@@ -62,7 +62,7 @@ const TICK_RATE = workerData.TICK_RATE;
 const SCALE = workerData.SCALE;
 
 // Modifiable
-var gravity;
+var gravity = new Vec2(0,9.81);
 var world;
 var listener;
 var players;
@@ -82,7 +82,9 @@ var gameDefaultState =
 		{game_type: "wall", x: 0, y: 300 },
 		{game_type: "wall", x: 800, y: 300 },
 		{game_type: "ball", x: 405, y: 100 },
-		{game_type: "ball", x: 395, y: 300 }
+		{game_type: "ball", x: 395, y: 300 },
+		{game_type: "player", x: 45, y: 500 },
+		{game_type: "player", x: 700, y: 500 }
 	]
 };
 var game;
@@ -96,7 +98,7 @@ entityTypes['ball'] =
 {
 	density: 0.2,
 	friction: 0.5,
-	restitution: 1.1,
+	restitution: 0.8,
 	x: 0, y:0,
 	rotation: 0,
 	radius: 10,
@@ -130,12 +132,25 @@ entityTypes['floor'] =
 	shape: "rect"
 };
 
+entityTypes['player'] = 
+{
+
+	density: 0.5,
+	friction: 0.5,
+	restitution: 0.05,
+	x: 400, y: 300,
+	rotation: 0,
+	width: 32,
+	height: 64,
+	type: "dynamic",
+	shape: "rect"
+};
+
 // Runs immediatley at the bottom of this script, initializes the thread
 // so that a lobby can be assigned to it...
 function initialize()
 {
 	game = structuredClone(gameDefaultState);
-	gravity = new Vec2(workerData.gravity.x, workerData.gravity.y);
 	world = new World(gravity, true);
 	world.SetContactListener(listener);
 
@@ -156,7 +171,7 @@ function initialize()
 	parentPort.postMessage({type: INIT_COMPLETE});
 }
 
-// when a ping message is received, send a pong message back.
+
 parentPort.on('message', (message) => {
 	if(message.type == START_GAME)
 	{
@@ -168,9 +183,29 @@ parentPort.on('message', (message) => {
 	{
 		running = false;
 	}
-	else if(message == INPUT)
+	else if(message.type == INPUT)
 	{
+		if(!(Number.isInteger(message.input)))
+			return;
+		if(message.input > 256 || message.input < 0)
+			return;
 
+		let state = false;
+		if(message.input > 127)
+		{
+			state = true;
+			message.input -= 128;
+		}
+
+		let entityId = 6;
+		if(message.input > 63)
+		{
+			entityId++;
+			message.input -= 64;
+		}
+
+		console.log("Player: " + (entityId - 6) +" Pressed: " + message.input);
+		entities[entityId].GetBody().ApplyImpulse(new Vec2(0,-10), entities[entityId].GetBody().GetWorldCenter());
 	}
 	else if( message.type == GET_STATE)
 	{
@@ -179,7 +214,7 @@ parentPort.on('message', (message) => {
 		//    created or deleted, additionally the first
 		//    frame shown to the player may be quite far
 		//    from reality although their first update would
-		//    fix it...
+		//    fix it... We will fix later
 		let stateRequestId = message.id;
 		parentPort.postMessage({type: GET_STATE, id: stateRequestId, state: gameDefaultState.entities});
 	}
@@ -210,6 +245,9 @@ function update()
 	// TODO: We should keep track of the positions and only send
 	//    if they change by at least 1 pixel as that is the min
 	//    we will actually see in the browser..
+	let data = new ArrayBuffer(entities.length * 8, {maxByteLength: entities.length * 8});
+	let buffer = new Uint16Array(data);
+	let count = 0;
 	for(let i = 0; i < entities.length; ++i)
 	{
 		let entity = entities[i].GetBody();
@@ -217,11 +255,28 @@ function update()
 		if(!entity.IsAwake()) continue;
 
 		let position = entity.GetPosition();
-		entityUpdate.push({id: i, x: position.x * SCALE, y: position.y * SCALE});
+
+		// This allows us to transfer the angle with 2 bytes of information:
+		// - 180 * (65536 / 360) = 32768
+		// - We substitute that for the 180 in: deg = (rad * 180) / PI
+		// - This gives us a number where 65536 represents 360 degrees
+		// - we can wrap around 65536 using modulus as you could with 360
+		// - on the other side we just divide by (65536 / 360) to get degrees out.
+		let angle = (entity.GetAngle() * 32768 / Math.PI) % 65536;
+
+		buffer[count * 4]     = i;
+		buffer[count * 4 + 1] = position.x * SCALE;
+		buffer[count * 4 + 2] = position.y * SCALE;
+		buffer[count * 4 + 3] = angle;
+		++count;
+
+		// TODO: figure out how to send this as a bare array
+		entityUpdate.push({id: i, x: position.x * SCALE, y: position.y * SCALE, angle: angle});
 	}
+	data.resize(count * 8);
 
 	if(entityUpdate.length > 0)
-    	parentPort.postMessage({type:UPDATE, entities: entityUpdate});
+    	parentPort.postMessage({type:UPDATE, entities: buffer});
 	
 	if(running)
 		setTimeout(update, 1000 / TICK_RATE);
@@ -245,7 +300,7 @@ function createEntity(props)
     		break;
     	case "rect":
 		    fixDef.shape = new Polygon;
-		    fixDef.shape.SetAsBox(props.width / SCALE, props.height / SCALE);
+		    fixDef.shape.SetAsBox((props.width / SCALE) / 2, (props.height / SCALE) / 2);
     		break;
     }
     let entity = world.CreateBody(bodyDef).CreateFixture(fixDef);
