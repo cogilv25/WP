@@ -45,6 +45,11 @@ var stateRequestCallbacks = [];
 //    number of threads and thus worlds created.
 exports.initialize = function(workerData, callback)
 {
+	if(cpuInfo.length == 0)
+		console.log("Unable to get the number of Logical CPU's! Defaulting to 4 threads, " +
+			"this can be modified in worlds.js if performance is poor!");
+	else
+		console.log(cpuInfo.length + " Logical CPU's Detected...");
 	console.log("Starting " + threads + " Threads...");
 	function initThread(i)
 	{
@@ -91,12 +96,11 @@ exports.setUpdateCallback = function(callback)
 	updateCallback = callback;
 };
 
-exports.getWorldState = function(worldId, callback)
+exports.getWorldState = function(worldId, playerId, callback)
 {
 	if(worlds[worldId].state != WORLD_STATES.WORLD_RUNNING) return false;
-
 	stateRequestCallbacks.push({id: stateRequestID, callback: callback});
-	worlds[worldId].thread.postMessage({type: GET_STATE, id: stateRequestID++});
+	worlds[worldId].thread.postMessage({type: GET_STATE, id: stateRequestID++, playerId: playerId});
 };
 
 exports.handleInput = function(worldId, input)
@@ -179,7 +183,8 @@ function handleWorkerMessage(id, message)
 		let index = stateRequestCallbacks.findIndex((a)=>{ return a.id === message.id });
 		let callback = stateRequestCallbacks[index].callback;
 		stateRequestCallbacks.splice(index, 1);
-		callback(message.state);
+		console.log("Worlds: " + message.playerId);
+		callback(message.state, message.playerId, message.playerIdOff);
 	}
 }
 

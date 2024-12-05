@@ -33,11 +33,11 @@ exports.initialize = (callbacks, worlds, path = "data/") =>
 {
 	requestWorld = callbacks[0];
 	returnWorld = callbacks[1];
-	clientWorldInit = (worldId, socket) => 
+	clientWorldInit = (worldId, playerId, socket) => 
 		{ 
-			callbacks[2](worldId, (state) =>
+			callbacks[2](worldId, playerId, (state, playerId, idOffset) =>
 			{
-				socket.emit("joined_world", state);
+				socket.emit("joined_world", state, playerId, idOffset);
 			}); 
 		};
 	for (let i = 0; i < worlds; ++i)
@@ -198,7 +198,7 @@ exports.newConnection = (socket) =>
 						lobbyId = lId;
 						playerId = accounts[accountId].player;
 						exports.clients[lobbies[lobbyId].world].push(socket);
-						clientWorldInit(lobbies[lobbyId].world, socket);
+						clientWorldInit(lobbies[lobbyId].world, playerId, socket);
 					}
 				});
 		});
@@ -258,9 +258,10 @@ exports.newConnection = (socket) =>
 			}
 			requestWorld(lobbyId, (worldId) => 
 				{ 
+					playerId = 0;
 					lobbies[lobbyId].world = worldId;
 					exports.clients[worldId] = [socket];
-					clientWorldInit(worldId, socket);
+					clientWorldInit(worldId, playerId, socket);
 				});
 		});
 
@@ -284,7 +285,7 @@ exports.newConnection = (socket) =>
 			if(worldId != null)
 			{
 				exports.clients[worldId].push(socket);
-				clientWorldInit(lobbies[lobbyId].world, socket);
+				clientWorldInit(lobbies[lobbyId].world, playerId, socket);
 			}
 
 		});
@@ -371,7 +372,7 @@ function saveAccounts(callback = ()=>{})
 				console.log("Accounts File Saved!")
 			else
 			{
-				console.error("Error Saving Accounts File:");
+				console.error("Error Saving Accounts File: ");
 				console.error(err);
 			}
 			callback(err == null);

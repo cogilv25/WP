@@ -6,8 +6,9 @@ const server = http.createServer(app);
 const {Server} = require("socket.io");
 const io = new Server(server);
 const bcrypt = require("bcrypt");
-const worldss = require(__dirname + "/api/worlds.js");
+const worlds = require(__dirname + "/api/worlds.js");
 const clients = require(__dirname + "/api/clients.js");
+const x = "";
 
 
 
@@ -35,7 +36,6 @@ const LOBBY_READY = 2;
 const LOBBY_STARTED = 3;
 
 let connections = [];
-let worlds = [];
 let lobbies = [];
 let players = [];
 
@@ -52,7 +52,7 @@ function initialize(stage = 0, threads)
 	{
 		console.log("Initializing Server...");
 		let initialState = { TICK_RATE: 60, SCALE: 30 };
-		worldss.initialize(initialState, (t) => { initialize(1, t); } );
+		worlds.initialize(initialState, (t) => { initialize(1, t); } );
 		return;
 	}
 	else if(stage == 1)
@@ -71,16 +71,14 @@ function initialize(stage = 0, threads)
 	console.log("Starting Server...");
 	startServer();
 
-	for(let i = 0; i < threads; ++i)
-		worlds[i] = {state: WORLD_READY};
-
-	worldss.setUpdateCallback(updateClients);
+	worlds.setUpdateCallback(updateClients);
+	console.log("Done.\n");
 }
 
 function updateClients(worldId, update)
 {	
 	let clientList = clients.clients[worldId];
-	// This is normal in real world but I want to be notified while testing
+	// This is normal in real world but I want to be notified while testing. Me later: is it?
 	// TODO: Remove.
 	if(clientList.length == 0)
 		console.log("Temporary Error: No clients!?");
@@ -93,7 +91,7 @@ function startServer()
 {
 	server.listen(8000, () =>
 	{
-		console.log("listening on *:8000\n\n");
+		console.log("listening on *:8000");
 	});
 }
 
@@ -106,7 +104,7 @@ app.use(express.static(__dirname + "/public/"));
 function lobbyRequestWorld(lobbyId, callback)
 {
 	;
-	worldss.queueForWorld(clients.getPlayersInLobby(lobbyId), (worldId) => 
+	worlds.queueForWorld(clients.getPlayersInLobby(lobbyId), (worldId) => 
 		{
 			games.push({lobby: lobbyId, world: worldId});
 			let clientList = clients.getClientsInLobby(lobbyId);
@@ -124,13 +122,13 @@ function lobbyReturnWorld(lobbyId)
 		return;
 	}
 
-	worldss.releaseWorld(worldId);
+	worlds.releaseWorld(worldId);
 	games.splice(gameId, 1);
 }
 
-function clientInitWorld(worldId, callback)
+function clientInitWorld(worldId, playerId, callback)
 {
-	worldss.getWorldState(worldId, callback);
+	worlds.getWorldState(worldId, playerId, callback);
 }
 
 io.on("connection", (socket) =>
@@ -141,8 +139,10 @@ io.on("connection", (socket) =>
 		if(playerId === false)
 			return;
 
-		data += playerId * 64;
-		worldss.handleInput(worldId, data);
+		if(!(typeof data === "string" || data instanceof String)) return;
+
+		data = data.charCodeAt() + (playerId * 64);
+		worlds.handleInput(worldId, data);
 	})
 });
 

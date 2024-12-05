@@ -1,0 +1,16 @@
+# A Problem of Scale
+When I was choosing the game I wanted to make for the multiplayer game assignment I was drawn to the idea of a puzzle based coperative game, the details of which are not relevant here, it is enough to know that the game is designed to be played by 2 players. Being as easily drawn in to the over complicated as I am, I thought it seemed a shame to only allow 2 players to play, and so why not allow multiple games to run on their own threads!
+
+Node provides threading functionality through its [worker threads API](https://nodejs.org/api/worker_threads.html) and is relatively easy to work with
+
+
+# Main Problem Solution
+{"update":[{"x":100,"y":100,"r":0.123},{"x":100,"y":100,"r":0.123},{"x":100,"y":100,"r":0.123},{"x":100,"y":100,"r":0.123}]}
+
+124 characters = 124 bytes
+
+
+37 bytes "update"
+6*4 = 24
+
+37+24 = 61

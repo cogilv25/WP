@@ -1,0 +1,48 @@
+{
+	"default":
+	{
+		"x": 0, "y":0,
+		"rotation": 0,
+		"radius": 10,
+		"width": 10,
+		"height": 10,
+		"shape": 0
+	},
+	"ball":
+	{
+		"shape": 1
+	},
+	"wall":
+	{
+		"width": 8
+	},
+	"floor":
+	{
+		"height": 8
+	},
+	"cake":
+	{
+		"width": 16,
+		"height": 16
+	},
+	"table":
+	{
+		"width": 64,
+		"height": 36
+	},
+	"player_s":
+	{
+		"width": 26,
+		"height": 56
+	},
+	"player_m":
+	{
+		"width": 32,
+		"height": 64
+	},
+	"player_l":
+	{
+		"width": 38,
+		"height": 72
+	}
+}

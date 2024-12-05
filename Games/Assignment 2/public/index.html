@@ -1,7 +1,6 @@
-<!DOCTYPE html>
 <html>
 	<head>
-		<title>The Tower</title>
+		<title>Hunger</title>
 		<link rel="stylesheet" href="normalize.css">
 		<link rel="stylesheet" href="style.css">
 		<script src="/socket.io/socket.io.js"></script>
@@ -13,7 +12,7 @@
 			<div id="auth_view">
 				<form id="auth_form">
 					<h1> <span id="login_button" class="auth_selected">Login</span> or <span id="register_button" class="auth_unselected">Register</span></h1>
-					<input id="username" type="text" autocomplete="off" placeholder="Username" maxlength="32">
+					<input id="username" type="text" autocomplete="off" placeholder="Username" maxlength="32" autofocus>
 					<input id="password" type="password" placeholder="Password" maxlength="32">
 					<button style="width: 155px" id="auth_button" type="submit">Login</button>
 				</form>
@@ -26,7 +25,7 @@
 					<div id="lobby_creator_container">
 						<form id="lobby_creator">
 							<input id="lobby_name" autocomplete="off" maxlength=20>
-							<div id="vr"></div>
+							<div class="vr"></div>
 							<button id="create_lobby" type="submit">Create Lobby</button>
 						</form>
 					</div>
@@ -35,59 +34,121 @@
 		</div>
 		<div id="game_view" style="display: none;">
 			<canvas id="canvas" width="800" height="600"></canvas>
+			<div id="hud">
+				<div id="h_bars">
+					<div id="h_bar" class="h_bar">
+						<div id="h_bar_bar" class="h_bar_bar"></div>
+					</div>
+					<div id="h_bar_divs">
+						<div class="vr"></div>
+						<div style="width: 60px;"></div>
+						<div class="vr"></div>
+					</div>
+				</div>
+			</div>
 		</div>
 		<script>
-			// Pass these over when first connecting or via XHR..?
-			var entityTypes = [];
-			entityTypes['ball'] = 
-			{
-				density: 0.5,
-				friction: 0.5,
-				restitution: 0.5,
-				x: 0, y:0,
-				rotation: 0,
-				radius: 10,
-				type: "dynamic",
-				shape: "circle"
-			};
-			entityTypes['wall'] = 
-			{
-				density: 0.5,
-				friction: 0.5,
-				restitution: 0.5,
-				x: 0, y: 0,
-				rotation: 0,
-				width: 8,
-				height: 600,
-				type: "static",
-				shape: "rect"
-			};
-			entityTypes['floor'] = 
-			{
-				density: 0.5,
-				friction: 0.5,
-				restitution: 0.5,
-				x: 0, y: 0,
-				rotation: 0,
-				width: 800,
-				height: 8,
-				type: "static",
-				shape: "rect"
-			};
 
-			entityTypes['player'] = 
+			// We store them in these, I'd like them to be const
+			//    since they don't change after initialization
+			//    but these promises are just awful to use.
+			var worldSettings;
+			var INPUT;
+			var entityTypes;
+			let camera;
+			
+			async function initializeApplication()
 			{
+				// We are counting the files loaded so we know when
+				//    everything is loaded..
+				var dataFilesLoaded = 0;
 
-				density: 0.5,
-				friction: 0.5,
-				restitution: 0.0,
-				x: 400, y: 300,
-				rotation: 0,
-				width: 32,
-				height: 64,
-				type: "dynamic",
-				shape: "rect"
-			};
+				// Awkward javascript promise stuff we have to work 
+				//    around...
+				async function loadDataFile(path, parseFun=(jsonData)=>{return jsonData;})
+				{
+					let data = await (await fetch(path)).json();
+					++dataFilesLoaded;
+					return parseFun(data);
+				}
+
+				// Expand the sparse properties into full properties
+				//    for each entity. This does involve storing data
+				//    we may not need for each entity but it's not an
+				//    issue currently.
+				function parseEntityTypes(entities)
+				{
+					let fullEntityTypes = [];
+					for([k,v] of Object.entries(entities))
+					{
+						fullEntityTypes[k] = structuredClone(entities.default);
+						for([k2,v2] of Object.entries(v))
+						{
+							fullEntityTypes[k][k2] = v2;
+						}
+					}
+					return fullEntityTypes;
+				}
+
+
+				worldSettings = await loadDataFile("./data/world.json");
+				INPUT = await loadDataFile("./data/input.json");
+				entityTypes = await loadDataFile("./data/entities.json", parseEntityTypes);
+				
+				camera = {
+					x: 0, y:0,
+					minX: worldSettings.offsetX + 400,
+					minY: worldSettings.offsetY + 300,
+					maxX: worldSettings.width + worldSettings.offsetX - 400,
+					maxY: worldSettings.height + worldSettings.offsetY - 300,
+				}
+				stage = new createjs.Stage(canvas);
+				stage.snapPixelsEnabled = true;
+			}
+
+
+			function clamp(value, min, max)
+			{
+				return value < min ? min : (value > max ? max : value);
+			}
+
+			function renderWorld()
+			{
+				let tx = entities[camera.targetEntity][0];
+				let ty = entities[camera.targetEntity][1];
+
+				camera.x = clamp(tx, camera.minX, camera.maxX);
+				camera.y = clamp(ty, camera.minY, camera.maxY);
+
+				worldTransformX = 400 - camera.x;
+				worldTransformY = 300 - camera.y;
+				for(let i = 0; i < entities.length; ++i)
+				{
+					easelEntities[i].x = entities[i][0] + worldTransformX;
+					easelEntities[i].y = entities[i][1] + worldTransformY;
+				}
+				stage.update();
+			}
+
+			let hBar = document.getElementById("h_bar_bar");
+			let cachedHunger = 120;
+			function renderHungerBar(hunger)
+			{
+				let diff = hunger - cachedHunger;
+				if(diff < 1 && diff > -1)
+					return;
+
+				let ratio = clamp(hunger / 120, 0, 1);
+
+				hBar.style.width = (ratio * 100) + "%";
+
+				if(cachedHunger > 80 && hunger < 81)
+					hBar.style.backgroundColor = "#e92";
+				if(cachedHunger > 40 && hunger < 41)
+					hBar.style.backgroundColor = "#e52";
+
+				cachedHunger = hunger;
+			}
 
 			// Max value is 63 since we are using the 7th and 8th bits for
 			//    representing the player and input state.
@@ -97,16 +158,22 @@
 				left:  1,
 				right: 2,
 				down:  3,
-				jump:  4
+				jump:  4,
+				interact: 5
 			};
 
 			let stage;
 			let entities = [];
+			let easelEntities = [];
+			let playerId = 0;
+			let players = [{hunger: 120, direction: 1, animation: 0}, {hunger: 120, direction: 1, animation: 0}];
+			let worldTransformX = 0;
+			let worldTransformY = 0;
 
 			let gameStarted = false;
 			let lobbies = [];
 			let socket = io();
-			socket.on("connect", () => {
+			socket.on("connect", (huh) => {
 				console.log(socket.id);
 			});
 
@@ -144,7 +211,7 @@
 					{
 						if(gameStarted)
 						{
-							socket.emit("input", inputMap[input] + (state ? 128 : 0));
+							socket.emit("input", String.fromCharCode(inputMap[input] + (state ? 128 : 0)));
 						}
 					});
 				});
@@ -257,7 +324,7 @@
 				let g = new createjs.Graphics();
 				g.setStrokeStyle(1);
 				let rx,ry;
-				if(props.shape == "circle")
+				if(props.shape == 1)
 				{
 					g.beginStroke(createjs.Graphics.getRGB(0,0,0));
 					g.beginFill(createjs.Graphics.getRGB(255,0,0));
@@ -279,24 +346,39 @@
 				s.regY = ry;
 				s.x = props.x;
 				s.y = props.y;
+				s.rotation = props.rotation;
 
 				stage.addChild(s);
 				stage.update();
 				return s;
 			}
 
-			function initializeWorld(state)
+			function initializeWorld(state, pId, playersIdOffset)
 			{
+				console.log(state);
 				for(let i = 0; i < state.length; ++i)
 				{
 					let template = state[i];
-					let props = structuredClone(entityTypes[template.game_type]);
+					if(template.type == "player")
+						template.type = "player_l";
+					let props = structuredClone(entityTypes[template.type]);
 					for([k, v] of Object.entries(template))
 					{
 						props[k] = v;
 					}
-					entities.push(createEntity(props));
+					if(entityTypes[template.type].shape == 1)
+						console.log(props);
+					easelEntities.push(createEntity(props));
+					entities.push([props.x, props.y]);
 				}
+
+				playerId = pId;
+				camera.targetEntity = playersIdOffset + pId;
+
+				worldTransformX = 400 - entities[camera.targetEntity][0];
+				worldTransformY = 500 - entities[camera.targetEntity][1];
+
+				stage.update();
 			}
 
 			function joinLobby(index)
@@ -305,9 +387,9 @@
 			}
 
 
-			socket.on("joined_world", (state) =>
+			socket.on("joined_world", (state, pId, playersIdOffset) =>
 				{
-					initializeWorld(state);
+					initializeWorld(state, pId, playersIdOffset);
 					mainMenu.style.display = "none";
 					gameView.style.display = "flex";
 					gameStarted = true;
@@ -319,6 +401,7 @@
 					lv.style.display = "flex";
 					authView.style.display = "none";
 					lobbies = remoteLobbies;
+					ln.focus();
 					renderLobbies();
 				});
 
@@ -344,28 +427,53 @@
 					renderLobbies();
 				});
 
+			var lastMessage;
 			socket.on("u", (update) =>
 			{
 				if(!gameStarted) return;
 				//console.log(update);
-
-				let delta = performance.now() - lastTick;
-				console.log(1000 / delta);
-				lastTick = performance.now();
+				// let delta = performance.now() - lastTick;
+				// console.log(1000 / delta);
+				// lastTick = performance.now();
 
 				let buffer = new Uint16Array(update);
-				// No Point in updating the stage unless
-				//    there's something to update!
-				for(let i = 0; i < buffer.length / 4; ++i)
+				let playerDetails = new Uint8Array(update);
+
+				// Get player details.
+				for(let i = 0; i < 2; ++i)
 				{
-					let id = buffer[i * 4];
-					entities[id].x = buffer[i * 4 + 1];
-					entities[id].y = buffer[i * 4 + 2];
-					entities[id].rotation = buffer[i * 4 + 3] / (65536 / 360);
+					players[i].hunger = playerDetails[i*2] >> 1;
+					players[i].direction = ((playerDetails[i*2] & 1) + 2) % 3 - 1;
+					players[i].animation = playerDetails[i*2+1];
+				} 
+
+				renderHungerBar(players[playerId].hunger);
+
+				let off = 3;
+				for(let i = 0; i < (buffer.length - 3) / 4; ++i)
+				{
+					let id = buffer[off + i * 4];
+					entities[id][0] = buffer[off + i * 4 + 1];
+					entities[id][1] = buffer[off + i * 4 + 2];
+					easelEntities[id].rotation = buffer[off + i * 4 + 3] / (65536 / 360);
 				}
-				stage.update();
+
+				// if(updateWorldTransform)
+				// {
+				// 	console.log(entities.length);
+				// 	worldTransformX += deltaWTX;
+				// 	worldTransformY += deltaWTY;
+				// 	for(let i = 0; i < entities.length; ++i)
+				// 	{
+				// 		entities[i].x += deltaWTX;
+				// 		entities[i].y += deltaWTY;
+				// 	}
+				// }
+				renderWorld();
+				lastMessage = buffer;
 			});
 
+			// TODO: What is this?
 			socket.on("player_joined", (player) =>
 				{
 					
@@ -390,8 +498,7 @@
 					renderLobbies();
 				});
 
-			stage = new createjs.Stage(canvas);
-			stage.snapPixelsEnabled = true;
+			initializeApplication();
 		</script>
 	</body>
 </html>
