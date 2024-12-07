@@ -1,6 +1,6 @@
 {
 	"gravity": {"x": 0, "y": 19.64},
-	"tick_rate": 60,
+	"tick_rate": 120,
 	"scale": 30,
 	"hungerDrainAmount": 1,
 	"hungerDrainPeriod": 400,
@@ -9,19 +9,21 @@
 	{
 		"onFloor": false,
 		"updateDimensions": false,
-		"stage": 2,
+		"stage": 3,
 		"hunger": 119,
 		"animation": 0,
 		"direction": 1,
+		"interacting": false,
+		"pressurePlate": 0,
 		"interactList": []
 	},
 
 	"playerStats":
 	[
 		{"speed": 0, "accel": 0, "jump": 0, "height": 56, "width": 26},
-		{"speed": 11, "accel": 4, "jump": 6, "height": 56, "width": 26},
-		{"speed": 14, "accel": 8, "jump": 7, "height": 64, "width": 32},
-		{"speed": 8,  "accel": 3, "jump": 4, "height": 72, "width": 38}	
+		{"speed": 11, "accel": 4, "jump": 8, "height": 56, "width": 26},
+		{"speed": 14, "accel": 8, "jump": 10, "height": 64, "width": 32},
+		{"speed": 8,  "accel": 3, "jump": 5, "height": 72, "width": 38}	
 	],
 
 	"spawners":
@@ -34,7 +36,7 @@
 	[
 		{"type":"ball",  "x": 500, "y": 800},
 		{"type":"ball",  "x": 550, "y": 1000},
-		{"type":"table", "x": 256, "y": 23},
-		{"type":"cake", "x": 256, "y": 49}
+		{"type":"table", "x": 1024, "y": 23},
+		{"type":"cake", "x": 1024, "y": 49}
 	]
 }

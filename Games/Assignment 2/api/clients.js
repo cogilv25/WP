@@ -35,9 +35,9 @@ exports.initialize = (callbacks, worlds, path = "data/") =>
 	returnWorld = callbacks[1];
 	clientWorldInit = (worldId, playerId, socket) => 
 		{ 
-			callbacks[2](worldId, playerId, (state, playerId, idOffset) =>
+			callbacks[2](worldId, (state, idOffset) =>
 			{
-				socket.emit("joined_world", state, playerId, idOffset);
+				socket.emit("joined_world", state, playerId);
 			}); 
 		};
 	for (let i = 0; i < worlds; ++i)
@@ -193,6 +193,7 @@ exports.newConnection = (socket) =>
 						{
 							accounts[accountId].lobby = null;
 							accounts[accountId].player = null;
+							socket.emit("logged_in", lobbies);
 							return;
 						}
 						lobbyId = lId;
@@ -284,6 +285,7 @@ exports.newConnection = (socket) =>
 			worldId = lobbies[lobbyId].world;
 			if(worldId != null)
 			{
+				console.log("Player " + playerId + " Joining");
 				exports.clients[worldId].push(socket);
 				clientWorldInit(lobbies[lobbyId].world, playerId, socket);
 			}

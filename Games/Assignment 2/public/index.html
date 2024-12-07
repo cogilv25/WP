@@ -56,7 +56,12 @@
 			var INPUT;
 			var entityTypes;
 			let camera;
-			
+			let inputMap;
+			let socket = io();
+			socket.on("connect", () => {
+				console.log(socket.id);
+			});
+
 			async function initializeApplication()
 			{
 				// We are counting the files loaded so we know when
@@ -90,9 +95,25 @@
 					return fullEntityTypes;
 				}
 
+				// Initializes input mechanisms.
+				function parseInputData(data)
+				{
+					let keyMap = [];
+					for([k,v] of Object.entries(data))
+						keyMap.push(v);
+
+					initializeKeyboard(keyMap, false);
+					registerUniversalKeyboardCallback("edge", (input, state) =>
+					{
+						if(gameStarted)
+							socket.emit("input", String.fromCharCode(parseInt(input) + (state ? 128 : 0)));
+					});
+					return data;
+				}
+
 
 				worldSettings = await loadDataFile("./data/world.json");
-				INPUT = await loadDataFile("./data/input.json");
+				INPUT = await loadDataFile("./data/input.json", parseInputData);
 				entityTypes = await loadDataFile("./data/entities.json", parseEntityTypes);
 				
 				camera = {
@@ -131,7 +152,11 @@
 			}
 
 			let hBar = document.getElementById("h_bar_bar");
-			let cachedHunger = 120;
+			// TODO: Move to data files.
+			const hBarColors = ["#e52","#e52","#e92","#da2"];
+
+			// TODO: if we relog these may not be correct for a frame..
+			let cachedHunger = 120, cachedStage = 3;
 			function renderHungerBar(hunger)
 			{
 				let diff = hunger - cachedHunger;
@@ -142,25 +167,14 @@
 
 				hBar.style.width = (ratio * 100) + "%";
 
-				if(cachedHunger > 80 && hunger < 81)
-					hBar.style.backgroundColor = "#e92";
-				if(cachedHunger > 40 && hunger < 41)
-					hBar.style.backgroundColor = "#e52";
+				let stage = Math.floor((hunger + 39) / 40);
+
+				if(stage != cachedStage)
+					hBar.style.backgroundColor = hBarColors[stage];
 
 				cachedHunger = hunger;
+				cachedStage = stage;
 			}
-
-			// Max value is 63 since we are using the 7th and 8th bits for
-			//    representing the player and input state.
-			let inputMap = 
-			{
-				up:    0,
-				left:  1,
-				right: 2,
-				down:  3,
-				jump:  4,
-				interact: 5
-			};
 
 			let stage;
 			let entities = [];
@@ -172,10 +186,6 @@
 
 			let gameStarted = false;
 			let lobbies = [];
-			let socket = io();
-			socket.on("connect", (huh) => {
-				console.log(socket.id);
-			});
 
 			let lc = document.getElementById("lobby_creator");
 			let ln = document.getElementById("lobby_name");
@@ -195,26 +205,6 @@
 			let lastTick = performance.now();
 
 			let loginFormEvent = "login";
-
-			window.addEventListener("load", ()=>
-				{
-					initializeKeyboard(
-						{
-							up:    [87, 38],
-							left:  [65, 37],
-							right: [68, 39],
-							down:  [83, 40],
-							jump:  [32]
-						}, false
-					);
-					registerUniversalKeyboardCallback("edge", (input, state) =>
-					{
-						if(gameStarted)
-						{
-							socket.emit("input", String.fromCharCode(inputMap[input] + (state ? 128 : 0)));
-						}
-					});
-				});
 			
 
 			loginButton.addEventListener("click", () =>
@@ -353,14 +343,23 @@
 				return s;
 			}
 
-			function initializeWorld(state, pId, playersIdOffset)
+			function initializeWorld(state, pId)
 			{
+				console.log("PlayerId: " + pId);
 				console.log(state);
 				for(let i = 0; i < state.length; ++i)
 				{
 					let template = state[i];
 					if(template.type == "player")
 						template.type = "player_l";
+					if(entityTypes[template.type] == null)
+					{
+						// Special case for invisible entities, they have to be included to keep the
+						//    indices correct though!
+						easelEntities.push(0);
+						entities.push(0);
+						continue;
+					}
 					let props = structuredClone(entityTypes[template.type]);
 					for([k, v] of Object.entries(template))
 					{
@@ -373,7 +372,7 @@
 				}
 
 				playerId = pId;
-				camera.targetEntity = playersIdOffset + pId;
+				camera.targetEntity = pId;
 
 				worldTransformX = 400 - entities[camera.targetEntity][0];
 				worldTransformY = 500 - entities[camera.targetEntity][1];
@@ -387,9 +386,9 @@
 			}
 
 
-			socket.on("joined_world", (state, pId, playersIdOffset) =>
+			socket.on("joined_world", (state, pId) =>
 				{
-					initializeWorld(state, pId, playersIdOffset);
+					initializeWorld(state, pId);
 					mainMenu.style.display = "none";
 					gameView.style.display = "flex";
 					gameStarted = true;
@@ -445,16 +444,30 @@
 					players[i].hunger = playerDetails[i*2] >> 1;
 					players[i].direction = ((playerDetails[i*2] & 1) + 2) % 3 - 1;
 					players[i].animation = playerDetails[i*2+1];
-				} 
+				}
 
-				renderHungerBar(players[playerId].hunger);
 
 				let off = 3;
-				for(let i = 0; i < (buffer.length - 3) / 4; ++i)
+				let stateShorts = buffer[off++];
+				if(stateShorts != 1)
+					console.log(stateShorts);
+				for(let i = off; off < i + stateShorts; ++off)
 				{
-					let id = buffer[off + i * 4];
+					let entityState = buffer[off] >> 12;
+					let id = buffer[off] & 4095;
+					console.log(id + ": " + entityState);
+					//entities[id][2] = entityState;
+				}
+
+				for(let i = 0; i < (buffer.length - off) / 4; ++i)
+				{
+					let entityState = buffer[off + i * 4] >> 12;
+					let id = buffer[off + i * 4] & 4095;
+					if(entityState != 0)
+						console.log(id + ": " + entityState);
 					entities[id][0] = buffer[off + i * 4 + 1];
 					entities[id][1] = buffer[off + i * 4 + 2];
+					entities[id][2] = entityState;
 					easelEntities[id].rotation = buffer[off + i * 4 + 3] / (65536 / 360);
 				}
 
@@ -469,6 +482,7 @@
 				// 		entities[i].y += deltaWTY;
 				// 	}
 				// }
+				renderHungerBar(players[playerId].hunger);
 				renderWorld();
 				lastMessage = buffer;
 			});

@@ -9,6 +9,18 @@
 //    updates through ports. Instead we can simply send "update" or equivalent
 //    and doubleBuffer the data while we work on the next "frame"...
 
+
+// TODO: Performance Implications - This is a list of known less-than-ideal
+//    performance areas that can be investigated if we have performance
+//    issues... which we likely won't...
+//    - The use of splice, we can in almost all circumstances use a sparse
+//        array instead.
+//    - The use of string comparison to identify things, we can define these
+//        in data and then use variables assigned to numbers instead. We have
+//        done this in some places but doing it extensively would give some
+//        admittedly unknown performance gains..
+
+
 // -------------------------------------------
 //                Includes
 // -------------------------------------------
@@ -26,7 +38,16 @@ const B2D = require("box2dweb-commonjs").Box2D;
 // -------------------------------------------
 const sharedEntityTypes = require(__dirname + "\\..\\public\\data\\entities.json");
 const sharedWorldSettings = require(__dirname + "\\..\\public\\data\\world.json");
-const INPUT = require(__dirname + "\\..\\public\\data\\input.json");
+const INPUT = (() =>
+{
+	let data = require(__dirname + "\\..\\public\\data\\input.json");
+	let strippedInput = {};
+	let count = 0;
+	for([k,v] of Object.entries(data))
+		strippedInput[k] = count++;
+
+	return strippedInput;
+})();
 
 // -------------------------------------------
 //               "Private Data"
@@ -93,6 +114,7 @@ var playerInputs = [ [], [] ];
 
 var players = [];
 var worldState = [];
+var countStateObjects = 0;
 
 // TODO: Temporary
 let playerFixtureDefs = 
@@ -135,6 +157,80 @@ var playerIdOff = 0;
 //    sending anything that is not drawn.
 var entityTypes = [];
 
+// Returns the index of the entity that activates the door.
+// depth is the number of doors in a row that make up this door
+// order is the opening order of the doors 1 (left->right) or -1
+//    -1 < values < 1 will create gaps between the doors.
+// direction defines movement on the y axis, a value of 1 will
+//    move 1 x height down, -2 will move 2x height up.
+function createHeavyDoor(depth, order, direction, x, y, height)
+{
+	// These doors essentially form a doubly linked list, the mechanism
+	//    is an invisible surface for the revolute joint to attach to,
+	//    both the mechanism and stopper are used to trigger the next door
+	//    on begin/end contact events.
+	let e = entities.length;
+	let cy = y;
+	createEntity(entityTypes['heavy_door'], {x:x,y:y,height:height, parent: 0});
+	cy += (height*direction) + 1;
+	createEntity(entityTypes['heavy_door_mechanism'], {x:x, y:cy, height:height});
+
+	//TODO: Prismatic Joint!
+
+	let stopperOff = entityTypes['heavy_door_stopper'].height / 2 - 1;
+	cy += height + stopperOff;
+	createEntity(entityTypes['heavy_door_stopper'], {x:x, y:cy, height:height});
+
+	
+	let cx = x;
+	let width = entityTypes['heavy_door'].width; 
+	for(let i = 1; i < depth; ++i)
+	{
+		cx += width * order;
+		worldState[e + (i - 1) * 3].child = e + i * 3;
+
+		cy = y;
+		createEntity(entityTypes['heavy_door'], {x:cx,y:y,height:height, parent:e+(i-1)*3});
+		cy += (height*direction) + 1;
+		createEntity(entityTypes['heavy_door_mechanism'], {x:cx, y:cy, height:height});
+
+		//TODO: Prismatic Joint!
+
+		let stopperOff = entityTypes['heavy_door_stopper'].height / 2 - 1;
+		cy += height + stopperOff;
+		createEntity(entityTypes['heavy_door_stopper'], {x:cx, y:cy, height:height});
+	}
+
+	worldState[entities.length - 1].child = 0;
+
+	return e;
+}
+
+// TODO: I don't like this solution.. but I don't have another one at the moment...
+function initializeComplexEntities()
+{
+	entityTypes['heavy_door_mechanism'].width = entityTypes['heavy_door'].width;
+	entityTypes['heavy_door_mechanism'].height = entityTypes['heavy_door'].height;
+	entityTypes['heavy_door_stopper'].width = entityTypes['heavy_door'].width;
+	// Doors (A single logical door may contain multiple physical doors)
+	// Breakable Doors
+
+	// Heavy Doors
+	  // Single Heavy
+	  // Triple Heavy
+	  // Quad Heavy
+	let door1 = createHeavyDoor(4, 1, 1, 640, 101, 192);
+	//createEntity(entityTypes['heavy_door'], {x:1024,y:133,height:192});
+
+	// Elevator
+
+	// Pull Cords
+
+	// Pressure Plates
+	// TODO: these should be prismatic joints as well so that the player interacts with them physically...
+	createEntity(entityTypes['pressure_plate'], { "x": 256, "y": 12, "target": door1});
+}
+
 // Runs immediatley at the bottom of this script, initializes the thread
 // so that a lobby can be assigned to it...
 function initialize()
@@ -162,9 +258,12 @@ function initialize()
 		if(k == "default") continue;
 		
 		entityTypes[k] = structuredClone(entityTypes['default']);
-		for([k2,v2] of Object.entries(sharedEntityTypes[k]))
+		if(sharedEntityTypes[k] != null)
 		{
-			entityTypes[k][k2] = v2;
+			for([k2,v2] of Object.entries(sharedEntityTypes[k]))
+			{
+				entityTypes[k][k2] = v2;
+			}
 		}
 		for([k2,v2] of Object.entries(privateEntityTypes[k]))
 		{
@@ -175,13 +274,14 @@ function initialize()
 
 	// Initialize Players
 	for(let i = 0; i < playerFixtureDefs.length; ++i)
-{
-	playerFixtureDefs[i].density = 0.5;
-	playerFixtureDefs[i].friction = 0;
-	playerFixtureDefs[i].restitution = 0.5;
-    playerFixtureDefs[i].shape = new Polygon;
-    playerFixtureDefs[i].shape.SetAsBox((worldSettings.playerStats[i].width / scale) / 2, (worldSettings.playerStats[i].height / scale) / 2);
-}
+	{
+		playerFixtureDefs[i].density = 0.5;
+		playerFixtureDefs[i].friction = 0.5;
+		playerFixtureDefs[i].restitution = 0.5;
+	    playerFixtureDefs[i].shape = new Polygon;
+	    playerFixtureDefs[i].shape.SetAsBox((worldSettings.playerStats[i].width / scale) / 2,
+	    	(worldSettings.playerStats[i].height / scale) / 2);
+	}
 
 	players.push(structuredClone(worldSettings.player));
 	players.push(structuredClone(worldSettings.player));
@@ -209,11 +309,14 @@ function initialize()
 	createEntity(entityTypes['wall'], {height: worldSettings.height, y: worldMidY, x: worldEndX});
 
 
+	// Initialize simple entities
 	for(let i = 0; i < worldSettings.entities.length; ++i)
 	{
 		let entityType = entityTypes[worldSettings.entities[i].type];
 		createEntity(entityType, worldSettings.entities[i]);
 	}
+
+	initializeComplexEntities();
 
 	// Initialize input state tracking
 	for(let i = 0; i < INPUT.length; ++i)
@@ -274,13 +377,16 @@ parentPort.on('message', (message) => {
 		//    from reality although their first update would
 		//    fix it... We will fix later
 		let stateRequestId = message.id;
-		parentPort.postMessage({type: GET_STATE, id: stateRequestId, state: worldState, playerId: 0, playerIdOff: playerIdOff});
+		parentPort.postMessage({type: GET_STATE, id: stateRequestId, state: worldState});
 	}
 });
 
 function deleteEntity(id)
 {
-	world.destroyBody(entities[i].GetBody())
+	world.DestroyBody(entities[id].GetBody())
+
+	if(worldState[id].sendState)
+		--countStateObjects;
 
 	entities[id] = null;
 
@@ -288,14 +394,33 @@ function deleteEntity(id)
 		entitiesHead = id;
 }
 
+function playerInteract(player, entity)
+{
+	let otherPlayer = player == 0 ? 1 : 0;
+	let removeIndex = players[otherPlayer].interactList.indexOf(entity);
+
+	if( removeIndex != -1)
+		players[otherPlayer].interactList.splice(removeIndex, 1);
+
+	if(entities[entity].GetUserData().type == "cake")
+	{
+		modifyPlayerHunger(player, 40);
+		deleteList.push(entity);
+	}
+
+	console.log(entities[entity].GetUserData().type);
+}
+
 let deleteList = [];
+//TODO: remove - for testing!
+let nextDoor = 0;
 function update()
 {
 	for(let p = 0; p < playerInputs.length; ++p)
 	{
 		let e = playerIdOff + p;
 		let b = entities[e].GetBody();
-		let stats = worldSettings.playerStats[Math.floor((players[p].hunger + 39) / 40)];
+		let stats = worldSettings.playerStats[players[p].stage];
 
 		if(playerInputs[p][INPUT.LEFT_ACTION])
 		{
@@ -314,27 +439,61 @@ function update()
 		if(playerInputs[p][INPUT.JUMP_ACTION])
 		{
 			if(players[p].onFloor)
-				b.ApplyImpulse(new Vec2(0,-stats.jump), b.GetWorldCenter());
+			{
+				players[p].onFloor = false;
+				let vel = b.GetLinearVelocity();
+				vel.y = -stats.jump;
+				b.SetLinearVelocity(vel);
+			}
 		}
 
 		if(playerInputs[p][INPUT.INTERACT_ACTION])
-		{
-			if(players[p].interactList.length > 0)
+	{
+		// TODO: attempting to interact by pressing e, and an interaction
+		//    taking place, both need modeled and one bool won't work..
+			if(!players[p].interacting)
 			{
-				playerInteract(p, players[p].interactList.pop());
+				console.log("Interact Started!");
+				players[p].interacting = true;
+				if(players[p].interactList.length > 0)
+				{
+					playerInteract(p, players[p].interactList.pop());
+				}
+			}
+		}
+		else
+		{
+			if(players[p].interacting)
+			{
+				players[p].interacting = false;
+				console.log("Interact Finished");
 			}
 		}
 
 		if(players[p].updateDimensions)
 		{
-			console.log("Fatter");
 			players[p].updateDimensions = false;
+
+			if(players[p].hunger < 81)
+			{
+				if(players[p].pressurePlate > 0)
+				{
+					--worldState[players[p].pressurePlate].state;
+					players[p].pressurePlate = 0;
+					if(players[p].pressurePlateActivated)
+					{
+						// Deactivate Prismatic Joint
+						players[p].pressurePlateActivated = false;
+					}
+				}
+			}
 
 			if(players[p].hunger == 0)
 				console.log("Player " + p + " died");
 
 			let heightDiff = worldSettings.playerStats[players[p].stage].height;
 			players[p].stage = Math.floor((players[p].hunger + 39) / 40);
+			if(players[p].stage > 3) players[p].stage = 3;
 
 			let ud = entities[e].GetUserData();
 			let fd = entities[e].GetFilterData();
@@ -349,11 +508,40 @@ function update()
 			let pos = entities[e].GetBody().GetPosition();
 			pos.y += heightDiff / scale;
 		}
+
+		if(players[p].pressurePlateActivated)
+		{
+			if(players[p].pressurePlate == 0)
+			{
+				// Deactivate Prismatic Joint
+				players[p].pressurePlateActivated = false;
+			}
+		}
+		else if(players[p].pressurePlate > 0)
+		{
+			if(!players[p].pressurePlateActivated)
+			{
+				players[p].pressurePlateActivated = true;
+				let doorId = worldState[players[p].pressurePlate].target;
+				let door = entities[doorId].GetBody();
+				if(door.GetLinearVelocity().y < 0.01)
+				{
+					door.ApplyImpulse(new Vec2(0,-200), door.GetWorldCenter());
+				}
+			}
+		}
+
+		if(nextDoor > 0)
+		{
+			let door = entities[nextDoor].GetBody();
+			door.ApplyImpulse(new Vec2(0,-200), door.GetWorldCenter());
+			nextDoor = 0;
+		}
 	}
 
 	world.Step(
 	    1/tick_rate, // tick rate
-	    10, // velocity iterationsw
+	    10, // velocity iterations
 	    10 // position iterations
     );
 	let entityUpdate = [];
@@ -383,7 +571,7 @@ function update()
 	// 2 bytes p1_stats, 2 bytes p2_stats, 2 bytes for the total
 	//    count of entities (reduce desync).
 	let off = 3;
-	let size = off * 2 + (entities.length * 8);
+	let size = ((off + countStateObjects + 1) * 2) + (entities.length * 8);
 	let data = new ArrayBuffer(size, {maxByteLength: size});
 	let buffer = new Uint16Array(data);
 	let playerDetails = new Uint8Array(data);
@@ -395,9 +583,21 @@ function update()
 		playerDetails[i * 2] += (players[i].direction + 2) % 3;
 		playerDetails[i * 2 + 1] = players[i].animation;
 	}
+
 	buffer[2] = entities.length;
+	buffer[off++] = countStateObjects;
 	for(let i = 0; i < entities.length; ++i)
 	{
+		if(worldState[i].sendState)
+			buffer[off++] = (worldState[i].state << 12) + i;
+	}
+
+	if(off != 5)
+		console.log(off);
+
+	for(let i = 0; i < entities.length; ++i)
+	{
+		if(entities[i] == null) continue;
 		let entity = entities[i].GetBody();
 		if(entity.GetType() == StaticBody) continue;
 		if(!entity.IsAwake()) continue;
@@ -412,7 +612,10 @@ function update()
 		// - finally we want to wrap around 65536 since 0deg == 360deg.
 		let angle = (entity.GetAngle() * 32768 / Math.PI) % 65536;
 
-		buffer[off + count * 4]     = i;
+		worldState[i].x = position.x * scale;
+		worldState[i].y = position.y * scale;
+
+		buffer[off + count * 4]     = (worldState[i].state << 12) + i;
 		buffer[off + count * 4 + 1] = position.x * scale;
 		buffer[off + count * 4 + 2] = position.y * scale;
 		buffer[off + count * 4 + 3] = angle;
@@ -421,7 +624,7 @@ function update()
 	data.resize(off * 2 + count * 8);
 
 	parentPort.postMessage({type:UPDATE, entities: buffer});
-	//console.log(entities[0].GetBody().GetPosition());
+
 	if(running)
 		setTimeout(update, 1000 / tick_rate);
 }
@@ -435,9 +638,13 @@ const privatePropertyKeys = [ "density"];
 function createEntity(entityType, sparseProps)
 {
 	let props = structuredClone(entityType);
-	for([k, v] of Object.entries(sparseProps))
+
+	if(!props.private)
 	{
-		props[k] = v;
+		for([k, v] of Object.entries(sparseProps))
+		{
+			props[k] = v;
+		}
 	}
 
 	let worldX = worldSettings.offsetX + props.x;
@@ -488,7 +695,10 @@ function createEntity(entityType, sparseProps)
 
 	// Add new entity to world state
 	let worldAngle = props.rotation * (65536 / 360);
-	let clientEntity = {type: props.userData.type};
+	let clientEntity = {type: props.userData.type, state: 0, sendState: props.sendState};
+	if(props.sendState)
+		++countStateObjects;
+
 	for([k,v] of Object.entries(sparseProps))
 	{
 		if(k != "userData")
@@ -499,7 +709,7 @@ function createEntity(entityType, sparseProps)
 	worldState.push(clientEntity);
 }
 
-
+let doorDone = [];
 listener = new ContactListener;
 listener.BeginContact = function(contact) 
 {
@@ -507,6 +717,23 @@ listener.BeginContact = function(contact)
 	let u1 = f1.GetUserData();
 	let f2 = contact.GetFixtureB();
 	let u2 = f2.GetUserData();
+
+	if((u1.type == "heavy_door" || u2.type == "heavy_door") && (u1.type == "heavy_door_stopper" || u2.type == "heavy_door_stopper"))
+	{
+		let doorId = (u1.type == "heavy_door" ? u1 : u2).index;
+		if(doorDone.indexOf(doorId) != -1) return;
+		doorDone.push(doorId);
+
+		let body = entities[doorId].GetBody();
+		body.SetLinearVelocity(new Vec2(body.GetLinearVelocity().x, 0));
+		body.ApplyForce(new Vec2(0, -19.64 * body.GetMass()), body.GetWorldCenter());
+		nextDoor = worldState[doorId].child;
+		//if(worldState[doorId].child > 0)
+		// {
+		// 	body = entities[worldState[doorId].child].GetBody();
+		// 	body.ApplyImpulse(new Vec2(0,-10), body.GetWorldCenter());
+		// }
+	}
 
 	if((u1.type == "player" || u2.type == "player") && (u1.type == "floor" || u2.type == "floor"))
 	{
@@ -523,6 +750,18 @@ listener.BeginContact = function(contact)
 		let cakeIndex = (playerIsF1 ? u2 : u1).index;
 		players[playerId].interactList.push(cakeIndex);
 	}
+
+	if((u1.type == "player" || u2.type == "player") && (u1.type == "pressure_plate" || u2.type == "pressure_plate"))
+	{
+		let playerIsF1 = (u1.type == "player");
+		let playerId = (playerIsF1 ? u1 : u2).id;
+		if(players[playerId].hunger > 80)
+		{
+			let pressurePlateIndex = (playerIsF1 ? u2 : u1).index;
+			++worldState[pressurePlateIndex].state;
+			players[playerId].pressurePlate = pressurePlateIndex;
+		}
+	}
 }
 listener.EndContact = function(contact)
 {
@@ -531,10 +770,16 @@ listener.EndContact = function(contact)
 	let f2 = contact.GetFixtureB();
 	let u2 = f2.GetUserData();
 
+	if((u1.type == "heavy_door" || u2.type == "heavy_door") && (u1.type == "heavy_door_mechanism" || u2.type == "heavy_door_mechanism"))
+	{
+		// TODO: Disable the child prismatic joint.
+	}
+
 	if((u1.type == "player" || u2.type == "player") && (u1.type == "floor" || u2.type == "floor"))
 	{
 		let playerId = (u1.type == "player" ? u1 : u2).id;
 		players[playerId].onFloor = false;
+
 	}
 
 	if((u1.type == "player" || u2.type == "player") && (u1.type == "cake" || u2.type == "cake"))
@@ -544,6 +789,18 @@ listener.EndContact = function(contact)
 		let cakeIndex = (playerIsF1 ? u2 : u1).index;
 		let indexToRemove = players[playerId].interactList.indexOf(cakeIndex);
 		players[playerId].interactList.splice(indexToRemove, 1);
+	}
+
+	if((u1.type == "player" || u2.type == "player") && (u1.type == "pressure_plate" || u2.type == "pressure_plate"))
+	{
+		let playerIsF1 = (u1.type == "player");
+		let playerId = (playerIsF1 ? u1 : u2).id;
+		if(players[playerId].hunger > 80)
+		{
+			let pressurePlateIndex = (playerIsF1 ? u2 : u1).index;
+			--worldState[pressurePlateIndex].state;
+			players[playerId].pressurePlate = 0;
+		}
 	}
 }
 listener.PostSolve = function(contact, impulse) { }
@@ -555,18 +812,19 @@ initialize();
 function modifyPlayerHunger(player, diff)
 {
 	let hunger = players[player].hunger;
-	let newHunger = hunger + diff;
-	players[player].hunger
-	if(players[player].hunger > 0)
-	{
-		players[player].hunger = newHunger;
+	if(hunger < 1) return;
 
-		if(Math.floor((hunger + 39) / 40) - Math.floor((newHunger + 39) / 40) == 0)
-			return;
-		// Make the player bigger or smaller
-		//    at the expected points.
-		players[player].updateDimensions = true;
-	}
+	let newHunger = hunger + diff;
+	if(newHunger < 0) newHunger = 0;
+	else if(newHunger > 119) newHunger = 119;
+
+	players[player].hunger = newHunger;
+
+	if(Math.floor((hunger + 39) / 40) - Math.floor((newHunger + 39) / 40) == 0)
+		return;
+	// Make the player bigger or smaller
+	//    at the expected points.
+	players[player].updateDimensions = true;
 }
 
 (() => {

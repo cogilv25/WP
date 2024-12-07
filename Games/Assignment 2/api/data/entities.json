@@ -13,6 +13,8 @@
 		"sleepingAllowed": true,
 		"requiresIndex": false,
 		"linearDamping": 0,
+		"private": false,
+		"sendState": false,
 		"userData": {}
 	},
 	"ball":
@@ -23,6 +25,7 @@
 	},
 	"wall":
 	{
+		"friction": 0,
 		"userData": {"type": "wall"}
 	},
 	"floor":
@@ -36,10 +39,42 @@
 		"requiresIndex": true,
 		"userData": {"type": "cake"}
 	},
+	"pressure_plate":
+	{
+		"mask": 2,
+		"isSensor":true,
+		"requiresIndex": true,
+		"sendState": true,
+		"userData": {"type": "pressure_plate"}
+	},
 	"table":
 	{
 		"mask": 65533,
 		"userData": {"type": "table"}
+	},
+	"heavy_door":
+	{
+		"density": 1,
+		"categories": 2,
+		"bodyType": 2,
+		"fixedRotation": true,
+		"requiresIndex": true,
+		"userData": {"type": "heavy_door"}
+	},
+	"heavy_door_mechanism":
+	{
+		"mask":2,
+		"isSensor": true,
+		"force": 10,
+		"requiresIndex": true,
+		"userData": {"type": "heavy_door_mechanism"}
+	},
+	"heavy_door_stopper":
+	{
+		"mask":2,
+		"isSensor": true,
+		"requiresIndex": true,
+		"userData": {"type": "heavy_door_stopper"}
 	},
 	"player_s":
 	{
@@ -48,6 +83,7 @@
 		"categories": 2,
 		"mask": 65533,
 		"fixedRotation": true,
+		"sleepingAllowed": false,
 		"userData": {"type": "player", "id": 0}
 	},
 	"player_m":
@@ -57,6 +93,7 @@
 		"categories": 2,
 		"mask": 65533,
 		"fixedRotation": true,
+		"sleepingAllowed": false,
 		"userData": {"type": "player", "id": 0}
 	},
 	"player_l":
@@ -66,6 +103,7 @@
 		"categories": 2,
 		"mask": 65533,
 		"fixedRotation": true,
+		"sleepingAllowed": false,
 		"userData": {"type": "player", "id": 0}
 	}
 }

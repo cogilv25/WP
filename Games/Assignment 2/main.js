@@ -126,9 +126,9 @@ function lobbyReturnWorld(lobbyId)
 	games.splice(gameId, 1);
 }
 
-function clientInitWorld(worldId, playerId, callback)
+function clientInitWorld(worldId, callback)
 {
-	worlds.getWorldState(worldId, playerId, callback);
+	worlds.getWorldState(worldId, callback);
 }
 
 io.on("connection", (socket) =>

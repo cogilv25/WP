@@ -96,11 +96,11 @@ exports.setUpdateCallback = function(callback)
 	updateCallback = callback;
 };
 
-exports.getWorldState = function(worldId, playerId, callback)
+exports.getWorldState = function(worldId, callback)
 {
 	if(worlds[worldId].state != WORLD_STATES.WORLD_RUNNING) return false;
 	stateRequestCallbacks.push({id: stateRequestID, callback: callback});
-	worlds[worldId].thread.postMessage({type: GET_STATE, id: stateRequestID++, playerId: playerId});
+	worlds[worldId].thread.postMessage({type: GET_STATE, id: stateRequestID++});
 };
 
 exports.handleInput = function(worldId, input)
@@ -183,8 +183,7 @@ function handleWorkerMessage(id, message)
 		let index = stateRequestCallbacks.findIndex((a)=>{ return a.id === message.id });
 		let callback = stateRequestCallbacks[index].callback;
 		stateRequestCallbacks.splice(index, 1);
-		console.log("Worlds: " + message.playerId);
-		callback(message.state, message.playerId, message.playerIdOff);
+		callback(message.state);
 	}
 }
 
