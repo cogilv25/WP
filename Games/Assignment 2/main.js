@@ -80,8 +80,8 @@ function updateClients(worldId, update)
 	let clientList = clients.clients[worldId];
 	// This is normal in real world but I want to be notified while testing. Me later: is it?
 	// TODO: Remove.
-	if(clientList.length == 0)
-		console.log("Temporary Error: No clients!?");
+	// if(clientList.length == 0)
+	// 	console.log("Temporary Error: No clients!?");
 
 	for(let i = 0; i < clientList.length; ++i)
 			clientList[i].emit("u", update);

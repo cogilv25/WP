@@ -75,6 +75,7 @@ const Circle = B2D.Collision.Shapes.b2CircleShape;
 const DistanceJoint = B2D.Dynamics.Joints.b2DistanceJoint;
 const RevoluteJoint = B2D.Dynamics.Joints.b2RevoluteJoint;
 const PrismaticJoint = B2D.Dynamics.Joints.b2PrismaticJoint;
+const PrismaticJointDefinition = B2D.Dynamics.Joints.b2PrismaticJointDef;
 const LineJoint = B2D.Dynamics.Joints.b2LineJoint;
 const WeldJoint = B2D.Dynamics.Joints.b2WeldJoint;
 const PulleyJoint = B2D.Dynamics.Joints.b2PulleyJoint;
@@ -95,13 +96,9 @@ const PLAYER_DC = 6;
 //                 Globals
 // -------------------------------------------
 
-// ------ Game-Agnostic
-
-// Constant
 var tick_rate;
 var scale;
 
-// Modifiable
 var gravity;
 var world;
 var listener;
@@ -111,12 +108,16 @@ var listener;
 //    whatever position it was last known to be in, possibly
 //    running into traps, etc...
 var playerInputs = [ [], [] ];
-
 var players = [];
 var worldState = [];
+
+// Complex state is world state that can't or shouldn't be sent 
+//    to the clients such as Timers, Functions, or potentially
+//    data that could allow a player to cheat, although we aren't
+//    really worried about that right now to be honest! 
+var complexState = [];
 var countStateObjects = 0;
 
-// TODO: Temporary
 let playerFixtureDefs = 
 [
 	new FixtureDefinition,
@@ -127,11 +128,9 @@ let playerFixtureDefs =
 
 var running = false;
 
-// Arrays
 var entities = [];
 var entitiesHead = 0;
 
-// ------ Game-Specific
 var hungerEnabled = false;
 var gameDefaultState = 
 {
@@ -149,64 +148,163 @@ var gameDefaultState =
 	]
 };
 
-// Where in the entity list the 2 player entities are.
-var playerIdOff = 0;
 
-
-// TODO: visible property so we can not bother
-//    sending anything that is not drawn.
 var entityTypes = [];
 
+var entityStateChangeFunctions =
+{
+	heavy_door_mechanism: (entityId, energy, state) =>
+	{
+		console.log("Entity: " + entityId + " Energy: " + energy + " State: " + state);
+		console.log("|- Reversed: " + worldState[entityId].reversed);
+		if(state)
+		{
+			if(complexState[entityId].timer != null)
+			{
+				clearInterval(complexState[entityId].timer);
+				complexState[entityId].timer = null;
+			}
+			//Open the door
+			entities[entityId].GetBody().
+				GetJointList().joint.EnableMotor(true != worldState[entityId].reversed);
+			if(complexState[entityId].openScriptedEvent != null)
+			{
+				if(complexState[entityId].openScriptRun == false)
+				{
+					complexState[entityId].openScriptRun =
+					complexState[entityId].openScriptedEvent();
+				}
+			}
+		}
+		else
+		{
+			// Close the door after the timer elapses
+			complexState[entityId].timer  = setTimeout(() =>
+			{
+				entities[entityId].GetBody().
+					GetJointList().joint.EnableMotor(false != worldState[entityId].reversed);
+
+				if(complexState[entityId].closeScriptedEvent != null)
+				{
+					if(complexState[entityId].closeScriptRun == false)
+					{
+						complexState[entityId].closeScriptRun =
+						complexState[entityId].closeScriptedEvent();
+					}
+				}
+			}
+			, worldState[entityId].timerTime);
+		}
+	}
+};
+
+// Note: must be an entity that can be activated.
+// energy is intended to allow complex behaviour such
+//    as multiple inputs being required..
+function activateEntity(entityId, energy)
+{
+	let prevEnergy = worldState[entityId].energy;
+	worldState[entityId].energy += energy;
+	console.log("Entity: " + entityId + " Energy: " + energy + " Acc_Energy: " + worldState[entityId].energy);
+	if(prevEnergy < worldState[entityId].activationEnergy)
+	{
+		if(worldState[entityId].energy >= worldState[entityId].activationEnergy)
+		{
+			entityStateChangeFunctions[worldState[entityId].type](entityId, energy, true);
+		}
+	}
+}
+
+// Note: must be an entity that can be deactivated.
+// energy is intended to allow complex behaviour such
+//    as multiple inputs being required..
+function deactivateEntity(entityId, energy)
+{
+	let prevEnergy = worldState[entityId].energy;
+	worldState[entityId].energy -= energy;
+	console.log("Entity: " + entityId + " Energy: " + energy + " Acc_Energy: " + worldState[entityId].energy);
+	if(prevEnergy >= worldState[entityId].activationEnergy)
+	{
+		if(worldState[entityId].energy < worldState[entityId].activationEnergy)
+		{
+			entityStateChangeFunctions[worldState[entityId].type](entityId, energy, false);
+		}
+	}
+}
+
 // Returns the index of the entity that activates the door.
-// depth is the number of doors in a row that make up this door
+// depth is the number of physical doors in a row that make
+//    up this logical door.
 // order is the opening order of the doors 1 (left->right) or -1
 //    -1 < values < 1 will create gaps between the doors.
-// direction defines movement on the y axis, a value of 1 will
-//    move 1 x height down, -2 will move 2x height up.
-function createHeavyDoor(depth, order, direction, x, y, height)
+// reverse - if true the door opens downwards, otherwise upwards.
+function createHeavyDoor(depth, order, reverse, activationEnergy, timerTime, x, y, height)
 {
 	// These doors essentially form a doubly linked list, the mechanism
 	//    is an invisible surface for the revolute joint to attach to,
 	//    both the mechanism and stopper are used to trigger the next door
 	//    on begin/end contact events.
+	if(reverse)
+		y -= height + entityTypes["heavy_door_stopper"].height;
 	let e = entities.length;
-	let cy = y;
-	createEntity(entityTypes['heavy_door'], {x:x,y:y,height:height, parent: 0});
-	cy += (height*direction) + 1;
-	createEntity(entityTypes['heavy_door_mechanism'], {x:x, y:cy, height:height});
+	let width = entityTypes['heavy_door'].width;
+	createEntity(entityTypes['heavy_door'], {x:x, y:y, height:height, parent: 0});
+	let mechY = y + height + 1;
 
-	//TODO: Prismatic Joint!
+	createEntity(entityTypes['heavy_door_mechanism'], {x:x, y:mechY, height:height,energy:0,activationEnergy:activationEnergy,
+		timerTime:timerTime, reversed : reverse});
 
-	let stopperOff = entityTypes['heavy_door_stopper'].height / 2 - 1;
-	cy += height + stopperOff;
-	createEntity(entityTypes['heavy_door_stopper'], {x:x, y:cy, height:height});
+
+	let anchor = entities[e + 1].GetBody();
+	let door = entities[e].GetBody();
+	let jointDef = new PrismaticJointDefinition();
+	let midX = (entityTypes['heavy_door'].width / 2) / scale;
+	let midY = (height / 2) / scale;
+	let axis = new Vec2(0, 1);
+	let lTrans = (height / scale);
+	let motorSpeed = 20;
+	let motorMax = door.GetMass() * 200;
+
+	jointDef.localAxisA = axis;
+	jointDef.bodyA = anchor;
+	jointDef.bodyB = door;
+	jointDef.maxMotorForce = motorMax;
+	jointDef.motorSpeed = -motorSpeed;
+	jointDef.enableMotor = reverse;
+
+	world.CreateJoint(jointDef);
+
+	let stopOff = entityTypes['heavy_door_stopper'].height + (height / 2);
+	createEntity(entityTypes['heavy_door_stopper'], {x:x, y:mechY + stopOff, opensDoor: true != reverse});
+	createEntity(entityTypes['heavy_door_stopper'], {x:x, y:y - stopOff, opensDoor: false != reverse});
 
 	
-	let cx = x;
-	let width = entityTypes['heavy_door'].width; 
+	let cx = x; 
 	for(let i = 1; i < depth; ++i)
 	{
 		cx += width * order;
-		worldState[e + (i - 1) * 3].child = e + i * 3;
+		worldState[e + (i - 1) * 4].child = e + i * 4 + 1;
 
-		cy = y;
-		createEntity(entityTypes['heavy_door'], {x:cx,y:y,height:height, parent:e+(i-1)*3});
-		cy += (height*direction) + 1;
-		createEntity(entityTypes['heavy_door_mechanism'], {x:cx, y:cy, height:height});
+		createEntity(entityTypes['heavy_door'], {x:cx,y:y,height:height, parent:e+(i-1)*4});
+		createEntity(entityTypes['heavy_door_mechanism'], {x:cx, y:mechY, height:height, reversed: reverse});
 
-		//TODO: Prismatic Joint!
+		jointDef.bodyA = entities[e + i * 4 + 1].GetBody();
+		jointDef.bodyB = entities[e + i * 4].GetBody();
+		world.CreateJoint(jointDef);
 
-		let stopperOff = entityTypes['heavy_door_stopper'].height / 2 - 1;
-		cy += height + stopperOff;
-		createEntity(entityTypes['heavy_door_stopper'], {x:cx, y:cy, height:height});
+		createEntity(entityTypes['heavy_door_stopper'], {x:cx, y:mechY + stopOff, opensDoor: true != reverse});
+		createEntity(entityTypes['heavy_door_stopper'], {x:cx, y:y - stopOff, opensDoor: false != reverse});
 	}
 
 	worldState[entities.length - 1].child = 0;
 
-	return e;
+	return e + 1;
 }
 
 // TODO: I don't like this solution.. but I don't have another one at the moment...
+//    I suspect this is one of those write it rough then figure out how it should
+//    work later type of problems.. I will probably run out of time for the second
+//    phase however..
 function initializeComplexEntities()
 {
 	entityTypes['heavy_door_mechanism'].width = entityTypes['heavy_door'].width;
@@ -217,10 +315,42 @@ function initializeComplexEntities()
 
 	// Heavy Doors
 	  // Single Heavy
+	let door2 = createHeavyDoor(1, 1, false, 3, 300, 4324, 191, 104);
 	  // Triple Heavy
+	let door3 = createHeavyDoor(3, 1, true, 3, 1500, 4268, 61, 104);
 	  // Quad Heavy
-	let door1 = createHeavyDoor(4, 1, 1, 640, 101, 192);
-	//createEntity(entityTypes['heavy_door'], {x:1024,y:133,height:192});
+	let door1 = createHeavyDoor(4, 1, false, 3, 2000, 600, 105, 192);
+
+	complexState[door3].openScriptRun = false;
+	complexState[door3].openScriptedEvent = () =>
+	{
+		console.log("hello");;
+		return false;
+	}
+
+	// The first door gatekeeps the players until they are ready to start,
+	//    prevents a player getting trapped in the first room, and enables
+	//    hunger
+	complexState[door1].openScriptRun = false;
+	complexState[door1].closeScriptRun = false;
+	complexState[door1].openScriptedEvent = () =>
+	{
+		console.log("Door Opened!");
+		return false;
+	};
+	complexState[door1].closeScriptedEvent = () =>
+	{
+		console.log("Door Closed!");
+		let p1Pos = entities[0].GetBody().GetPosition();
+		let p2Pos = entities[1].GetBody().GetPosition();
+		let doorPos = entities[door1].GetBody().GetPosition();
+		if(p1Pos.x + 4 > doorPos.x && p2Pos.x + 4 > doorPos.x)
+		{
+			hungerEnabled = true;
+			return true;
+		}
+		return false;
+	};
 
 	// Elevator
 
@@ -228,7 +358,12 @@ function initializeComplexEntities()
 
 	// Pressure Plates
 	// TODO: these should be prismatic joints as well so that the player interacts with them physically...
-	createEntity(entityTypes['pressure_plate'], { "x": 256, "y": 12, "target": door1});
+	//    We could also do with them being in a function due to the number of things that need to be in
+	//    worldState
+	createEntity(entityTypes['pressure_plate'], { x: 352, y: 9, width: 64, target: door1, weightLimit: 6, weight: 0});
+	createEntity(entityTypes['pressure_plate'], { x: 3992, y: 9, target: door2, weightLimit: 3, weight: 0});
+	createEntity(entityTypes['pressure_plate'], { x: 4072, y: 9, target: door3, weightLimit: 3, weight: 0});
+	createEntity(entityTypes['pressure_plate'], { x: 4456, y: 9, target: door3, weightLimit: 3, weight: 0});
 }
 
 // Runs immediatley at the bottom of this script, initializes the thread
@@ -289,7 +424,7 @@ function initialize()
 	
 	// TODO: This should be placing player spawns NOT players...
 	createEntity(entityTypes['player_l'], {x: 48, y: 48, userData: {type:"player", id: 0}});
-	createEntity(entityTypes['player_l'], {x: 96, y: 48, userData: {type:"player", id: 1}});
+	createEntity(entityTypes['player_l'], {x: 48, y: 48, userData: {type:"player", id: 1}});
 
 
 	//console.log(entityTypes);
@@ -333,7 +468,6 @@ parentPort.on('message', (message) => {
 	if(message.type == START_GAME)
 	{
 		running = true;
-		hungerEnabled = true;
 		update();
 	}
 	else if(message == STOP_GAME)
@@ -353,7 +487,7 @@ parentPort.on('message', (message) => {
 		let player = (message.input & 64) >> 6;
 		let state = (message.input & 128) > 0;
 		let action = (message.input & 63);
-		let entityId = playerIdOff + player;
+		let entityId = player;
 
 		//Debug Logging
 		// console.log("Raw: " + message.input + 
@@ -364,20 +498,13 @@ parentPort.on('message', (message) => {
 		playerInputs[player][action] = state;
 		if(!state && (action == INPUT.RIGHT_ACTION || action == INPUT.LEFT_ACTION))
 		{
-			let b = entities[playerIdOff + player].GetBody();
+			let b = entities[player].GetBody();
 			b.SetLinearVelocity(new Vec2(0, b.GetLinearVelocity().y));
 		}
 	}
 	else if( message.type == GET_STATE)
 	{
-		// TODO: We should be passing the current state...
-		//    This will work so long as no entities are
-		//    created or deleted, additionally the first
-		//    frame shown to the player may be quite far
-		//    from reality although their first update would
-		//    fix it... We will fix later
-		let stateRequestId = message.id;
-		parentPort.postMessage({type: GET_STATE, id: stateRequestId, state: worldState});
+		setTimeout(() => { parentPort.postMessage({type: GET_STATE, id: message.id, state: worldState}); }, 500);
 	}
 });
 
@@ -407,18 +534,14 @@ function playerInteract(player, entity)
 		modifyPlayerHunger(player, 40);
 		deleteList.push(entity);
 	}
-
-	console.log(entities[entity].GetUserData().type);
 }
 
 let deleteList = [];
-//TODO: remove - for testing!
-let nextDoor = 0;
 function update()
 {
 	for(let p = 0; p < playerInputs.length; ++p)
 	{
-		let e = playerIdOff + p;
+		let e = p;
 		let b = entities[e].GetBody();
 		let stats = worldSettings.playerStats[players[p].stage];
 
@@ -448,9 +571,10 @@ function update()
 		}
 
 		if(playerInputs[p][INPUT.INTERACT_ACTION])
-	{
+		{
 		// TODO: attempting to interact by pressing e, and an interaction
 		//    taking place, both need modeled and one bool won't work..
+		//    annoyingly I can't remember why now (:
 			if(!players[p].interacting)
 			{
 				console.log("Interact Started!");
@@ -472,28 +596,17 @@ function update()
 
 		if(players[p].updateDimensions)
 		{
+			console.log("Player Stage Update");
 			players[p].updateDimensions = false;
-
-			if(players[p].hunger < 81)
-			{
-				if(players[p].pressurePlate > 0)
-				{
-					--worldState[players[p].pressurePlate].state;
-					players[p].pressurePlate = 0;
-					if(players[p].pressurePlateActivated)
-					{
-						// Deactivate Prismatic Joint
-						players[p].pressurePlateActivated = false;
-					}
-				}
-			}
 
 			if(players[p].hunger == 0)
 				console.log("Player " + p + " died");
 
-			let heightDiff = worldSettings.playerStats[players[p].stage].height;
+
+			let prevStage = players[p].stage;
 			players[p].stage = Math.floor((players[p].hunger + 39) / 40);
 			if(players[p].stage > 3) players[p].stage = 3;
+
 
 			let ud = entities[e].GetUserData();
 			let fd = entities[e].GetFilterData();
@@ -504,38 +617,33 @@ function update()
 			entities[e].SetFilterData(fd);
 			entities[e].SetSensor(sens);
 
-			heightDiff = worldSettings.playerStats[players[p].stage].height - heightDiff;
+			let heightDiff = worldSettings.playerStats[players[p].stage].height - 
+				worldSettings.playerStats[prevStage].height;
 			let pos = entities[e].GetBody().GetPosition();
 			pos.y += heightDiff / scale;
-		}
 
-		if(players[p].pressurePlateActivated)
-		{
-			if(players[p].pressurePlate == 0)
+			// Handle the players hunger stage changing on top of a pressure plate.
+			let pressurePlate = players[p].pressurePlate; 
+			if(pressurePlate > 0)
 			{
-				// Deactivate Prismatic Joint
-				players[p].pressurePlateActivated = false;
-			}
-		}
-		else if(players[p].pressurePlate > 0)
-		{
-			if(!players[p].pressurePlateActivated)
-			{
-				players[p].pressurePlateActivated = true;
-				let doorId = worldState[players[p].pressurePlate].target;
-				let door = entities[doorId].GetBody();
-				if(door.GetLinearVelocity().y < 0.01)
+				let stageDiff = players[p].stage - prevStage;
+				let target = worldState[pressurePlate].target;
+				let prevWeight = worldState[pressurePlate].weight;
+				let weightLimit = worldState[pressurePlate].weightLimit;
+				worldState[pressurePlate].weight += stageDiff;
+
+				if(stageDiff > 0)
 				{
-					door.ApplyImpulse(new Vec2(0,-200), door.GetWorldCenter());
+					if(prevWeight < weightLimit)
+					{
+						activateEntity(target, Math.min(stageDiff, weightLimit - prevWeight));
+					}
+				}
+				else if(worldState[pressurePlate].weight < weightLimit)
+				{
+					deactivateEntity(target, Math.min(-stageDiff, weightLimit - worldState[pressurePlate].weight));
 				}
 			}
-		}
-
-		if(nextDoor > 0)
-		{
-			let door = entities[nextDoor].GetBody();
-			door.ApplyImpulse(new Vec2(0,-200), door.GetWorldCenter());
-			nextDoor = 0;
 		}
 	}
 
@@ -592,8 +700,8 @@ function update()
 			buffer[off++] = (worldState[i].state << 12) + i;
 	}
 
-	if(off != 5)
-		console.log(off);
+	
+	//console.log(off);
 
 	for(let i = 0; i < entities.length; ++i)
 	{
@@ -639,12 +747,9 @@ function createEntity(entityType, sparseProps)
 {
 	let props = structuredClone(entityType);
 
-	if(!props.private)
+	for([k, v] of Object.entries(sparseProps))
 	{
-		for([k, v] of Object.entries(sparseProps))
-		{
-			props[k] = v;
-		}
+		props[k] = v;
 	}
 
 	let worldX = worldSettings.offsetX + props.x;
@@ -675,7 +780,7 @@ function createEntity(entityType, sparseProps)
     if(props.requiresIndex)
     	props.userData.index = entitiesHead;
 
-    // TODO: Full Entity Creation System
+
 	entity.SetSensor(props.isSensor);
     entity.SetUserData(props.userData);
 	entity.GetBody().SetSleepingAllowed(props.sleepingAllowed);
@@ -687,7 +792,7 @@ function createEntity(entityType, sparseProps)
 	filter.groupIndex = props.group;
 	entity.SetFilterData(filter);
 
-	// Add the entity to the b2d entities
+
 	entities[entitiesHead] = entity;
 	for(++entitiesHead; entitiesHead < entities.length; ++entitiesHead)
 		if(entities[entitiesHead] === null) break;
@@ -704,12 +809,14 @@ function createEntity(entityType, sparseProps)
 		if(k != "userData")
 			clientEntity[k] = v;
 	}
+
 	clientEntity.x = worldX;
 	clientEntity.y = worldY;
 	worldState.push(clientEntity);
+	if(props.complex);
+	complexState[worldState.length] = {};
 }
 
-let doorDone = [];
 listener = new ContactListener;
 listener.BeginContact = function(contact) 
 {
@@ -721,26 +828,22 @@ listener.BeginContact = function(contact)
 	if((u1.type == "heavy_door" || u2.type == "heavy_door") && (u1.type == "heavy_door_stopper" || u2.type == "heavy_door_stopper"))
 	{
 		let doorId = (u1.type == "heavy_door" ? u1 : u2).index;
-		if(doorDone.indexOf(doorId) != -1) return;
-		doorDone.push(doorId);
-
-		let body = entities[doorId].GetBody();
-		body.SetLinearVelocity(new Vec2(body.GetLinearVelocity().x, 0));
-		body.ApplyForce(new Vec2(0, -19.64 * body.GetMass()), body.GetWorldCenter());
-		nextDoor = worldState[doorId].child;
-		//if(worldState[doorId].child > 0)
-		// {
-		// 	body = entities[worldState[doorId].child].GetBody();
-		// 	body.ApplyImpulse(new Vec2(0,-10), body.GetWorldCenter());
-		// }
+		let stopperId = (u1.type == "heavy_door" ? u2 : u1).index;
+		let child = worldState[doorId].child;
+		if(child > 0)
+			entityStateChangeFunctions["heavy_door_mechanism"](child, 0, worldState[stopperId].opensDoor);
 	}
 
 	if((u1.type == "player" || u2.type == "player") && (u1.type == "floor" || u2.type == "floor"))
 	{
 		let playerId = (u1.type == "player" ? u1 : u2).id;
-		players[playerId].onFloor = true;
-		entities[playerIdOff + playerId].GetBody().SetLinearVelocity( new Vec2(
-			entities[playerIdOff + playerId].GetBody().GetLinearVelocity().x, 0));
+		let floorId = (u1.type == "player" ? u2 : u1).index;
+		if(entities[playerId].GetBody().GetPosition().y + (30/scale) < entities[floorId].GetBody().GetPosition().y)
+		{
+			players[playerId].onFloor = true;
+			entities[playerId].GetBody().SetLinearVelocity( new Vec2(
+				entities[playerId].GetBody().GetLinearVelocity().x, 0));
+		}
 	}
 
 	if((u1.type == "player" || u2.type == "player") && (u1.type == "cake" || u2.type == "cake"))
@@ -755,12 +858,10 @@ listener.BeginContact = function(contact)
 	{
 		let playerIsF1 = (u1.type == "player");
 		let playerId = (playerIsF1 ? u1 : u2).id;
-		if(players[playerId].hunger > 80)
-		{
-			let pressurePlateIndex = (playerIsF1 ? u2 : u1).index;
-			++worldState[pressurePlateIndex].state;
-			players[playerId].pressurePlate = pressurePlateIndex;
-		}
+		let pressurePlateIndex = (playerIsF1 ? u2 : u1).index;
+		++worldState[pressurePlateIndex].state;
+		players[playerId].pressurePlate = pressurePlateIndex;
+		activateEntity(worldState[pressurePlateIndex].target, players[playerId].stage);
 	}
 }
 listener.EndContact = function(contact)
@@ -769,11 +870,6 @@ listener.EndContact = function(contact)
 	let u1 = f1.GetUserData();
 	let f2 = contact.GetFixtureB();
 	let u2 = f2.GetUserData();
-
-	if((u1.type == "heavy_door" || u2.type == "heavy_door") && (u1.type == "heavy_door_mechanism" || u2.type == "heavy_door_mechanism"))
-	{
-		// TODO: Disable the child prismatic joint.
-	}
 
 	if((u1.type == "player" || u2.type == "player") && (u1.type == "floor" || u2.type == "floor"))
 	{
@@ -795,16 +891,29 @@ listener.EndContact = function(contact)
 	{
 		let playerIsF1 = (u1.type == "player");
 		let playerId = (playerIsF1 ? u1 : u2).id;
-		if(players[playerId].hunger > 80)
-		{
-			let pressurePlateIndex = (playerIsF1 ? u2 : u1).index;
-			--worldState[pressurePlateIndex].state;
-			players[playerId].pressurePlate = 0;
-		}
+		let pressurePlateIndex = (playerIsF1 ? u2 : u1).index;
+		--worldState[pressurePlateIndex].state;
+		players[playerId].pressurePlate = 0;
+		deactivateEntity(worldState[pressurePlateIndex].target, players[playerId].stage);
 	}
 }
-listener.PostSolve = function(contact, impulse) { }
-listener.PreSolve = function(contact, oldManifold) { }
+listener.PostSolve = function(contact, impulse) 
+{ 
+	let f1 = contact.GetFixtureA();
+	let u1 = f1.GetUserData();
+	let f2 = contact.GetFixtureB();
+	let u2 = f2.GetUserData();
+	if((u1.type == "heavy_door" || u2.type == "heavy_door") && (u1.type == "player" || u2.type == "player"))
+	{
+		let body = (u1.type == "heavy_door" ? f1 : f2).GetBody();
+		let vel = body.GetLinearVelocity();
+		vel.x = 0;
+	}
+}
+listener.PreSolve = function(contact, oldManifold)
+{
+	
+}
 
 
 initialize();

@@ -37,6 +37,8 @@
 		{"type":"ball",  "x": 500, "y": 800},
 		{"type":"ball",  "x": 550, "y": 1000},
 		{"type":"table", "x": 1024, "y": 23},
-		{"type":"cake", "x": 1024, "y": 49}
+		{"type":"cake", "x": 1024, "y": 49},
+		{"type":"floor", "x": 4224, "y": 122, "width": 512, "height": 24},
+		{"type":"floor", "x": 4416, "y": 215, "width": 128, "height": 48}
 	]
 }

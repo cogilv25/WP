@@ -30,6 +30,8 @@
 	},
 	"floor":
 	{
+		"restitution": 0,
+		"requiresIndex": true,
 		"userData": {"type": "floor"}
 	},
 	"cake":
@@ -54,8 +56,11 @@
 	},
 	"heavy_door":
 	{
-		"density": 1,
-		"categories": 2,
+		"restitution": 0,
+		"density": 1000,
+		"friction": 0,
+		"categories": 4,
+		"mask": 2,
 		"bodyType": 2,
 		"fixedRotation": true,
 		"requiresIndex": true,
@@ -63,16 +68,21 @@
 	},
 	"heavy_door_mechanism":
 	{
-		"mask":2,
+		"activationEnergy": 3,
+		"stateChangeFunc": "heavy_door",
+		"mask":4,
 		"isSensor": true,
 		"force": 10,
 		"requiresIndex": true,
+		"private": true,
+		"conplex": true,
 		"userData": {"type": "heavy_door_mechanism"}
 	},
 	"heavy_door_stopper":
 	{
-		"mask":2,
-		"isSensor": true,
+		"restitution": 0,
+		"mask":4,
+		"categories":2,
 		"requiresIndex": true,
 		"userData": {"type": "heavy_door_stopper"}
 	},
