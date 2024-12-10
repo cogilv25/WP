@@ -20,10 +20,10 @@
 
 	"playerStats":
 	[
-		{"speed": 0, "accel": 0, "jump": 0, "height": 56, "width": 26},
-		{"speed": 11, "accel": 4, "jump": 8, "height": 56, "width": 26},
-		{"speed": 14, "accel": 8, "jump": 10, "height": 64, "width": 32},
-		{"speed": 8,  "accel": 3, "jump": 5, "height": 72, "width": 38}	
+		{"speed": 0, "accel": 0, "jump": 0, "height": 56, "crouchHeight": 48, "width": 26},
+		{"speed": 11, "accel": 4, "jump": 8, "height": 56, "crouchHeight": 48, "width": 26},
+		{"speed": 14, "accel": 8, "jump": 10, "height": 64, "crouchHeight": 54, "width": 32},
+		{"speed": 8,  "accel": 3, "jump": 5, "height": 72, "crouchHeight": 60, "width": 38}	
 	],
 
 	"spawners":
@@ -34,11 +34,17 @@
 
 	"entities":
 	[
-		{"type":"ball",  "x": 500, "y": 800},
-		{"type":"ball",  "x": 550, "y": 1000},
-		{"type":"table", "x": 1024, "y": 23},
-		{"type":"cake", "x": 1024, "y": 49},
-		{"type":"floor", "x": 4224, "y": 122, "width": 512, "height": 24},
-		{"type":"floor", "x": 4416, "y": 215, "width": 128, "height": 48}
+		{"type":"ball",  "x": 1000, "y": 395},
+		{"type":"ball",  "x": 1030, "y": 400},
+		{"type":"ball",  "x": 1060, "y": 405},
+		{"type":"ball",  "x": 1090, "y": 410},
+		{"type":"ball",  "x": 1120, "y": 415},
+		{"type":"ball",  "x": 1150, "y": 420},
+		{"type":"ball",  "x": 1180, "y": 425},
+		{"type":"ball",  "x": 1210, "y": 430},
+		{"type":"table", "x": 1684, "y": 23},
+		{"type":"cake", "x": 1684, "y": 49},
+		{"type":"floor", "x": 1224, "y": 122, "width": 512, "height": 24},
+		{"type":"floor", "x": 1416, "y": 214, "width": 128, "height": 48}
 	]
 }

@@ -105,6 +105,8 @@
 					initializeKeyboard(keyMap, false);
 					registerUniversalKeyboardCallback("edge", (input, state) =>
 					{
+						if(input == 7)
+							camera.target = (camera.target + 8) % 16;
 						if(gameStarted)
 							socket.emit("input", String.fromCharCode(parseInt(input) + (state ? 128 : 0)));
 					});
@@ -116,13 +118,13 @@
 				INPUT = await loadDataFile("./data/input.json", parseInputData);
 				entityTypes = await loadDataFile("./data/entities.json", parseEntityTypes);
 				
-				camera = {
-					x: 0, y:0,
-					minX: worldSettings.offsetX + 400,
-					minY: worldSettings.offsetY + 300,
-					maxX: worldSettings.width + worldSettings.offsetX - 400,
-					maxY: worldSettings.height + worldSettings.offsetY - 300,
-				}
+				// camera = {
+				// 	x: 0, y:0,
+				// 	minX: worldSettings.offsetX + 400,
+				// 	minY: worldSettings.offsetY + 300,
+				// 	maxX: worldSettings.width + worldSettings.offsetX - 400,
+				// 	maxY: worldSettings.height + worldSettings.offsetY - 300,
+				// }
 				stage = new createjs.Stage(canvas);
 				stage.snapPixelsEnabled = true;
 			}
@@ -133,21 +135,66 @@
 				return value < min ? min : (value > max ? max : value);
 			}
 
+			let worldStart = 256;
+			let worldEnd = worldStart + 2048;
+			
+			camera =
+			{
+				x: 0, y:0,
+				target: 0,
+				maxSpeed: 20,
+				moveFactor: 0.05,
+				minX: worldStart + 400,
+				minY: worldStart + 300,
+				maxX: worldEnd - 400,
+				maxY: worldEnd - 300
+			};
+
 			function renderWorld()
 			{
-				let tx = entities[camera.targetEntity][0];
-				let ty = entities[camera.targetEntity][1];
+				// Version 1
+				worldTransformX = 400 - entities[0][0]; // 400 - x
+				worldTransformY = 300 - entities[0][1]; // 300 - y
 
-				camera.x = clamp(tx, camera.minX, camera.maxX);
-				camera.y = clamp(ty, camera.minY, camera.maxY);
-
-				worldTransformX = 400 - camera.x;
-				worldTransformY = 300 - camera.y;
 				for(let i = 0; i < entities.length; ++i)
 				{
 					easelEntities[i].x = entities[i][0] + worldTransformX;
 					easelEntities[i].y = entities[i][1] + worldTransformY;
 				}
+
+				//Version 2
+				// let tx = entities[camera.target][0];
+				// let ty = entities[camera.target][1];
+
+				// camera.x = clamp(tx, camera.minX, camera.maxX);
+				// camera.y = clamp(ty, camera.minY, camera.maxY);
+
+				// worldTransformX = 400 - camera.x;
+				// worldTransformY = 300 - camera.y;
+				// for(let i = 0; i < entities.length; ++i)
+				// {
+				// 	easelEntities[i].x = entities[i][0] + worldTransformX;
+				// 	easelEntities[i].y = entities[i][1] + worldTransformY;
+				// }
+
+				// // Version 3
+				// let xMove = (entities[camera.target][0] - camera.x) * camera.moveFactor;
+				// let yMove = (entities[camera.target][1] - camera.y) * camera.moveFactor;
+
+				// let tx = camera.x + clamp(xMove, -camera.maxSpeed, camera.maxSpeed);
+				// let ty = camera.y + clamp(yMove, -camera.maxSpeed, camera.maxSpeed);
+
+				// camera.x = clamp(tx, camera.minX, camera.maxX);
+				// camera.y = clamp(ty, camera.minY, camera.maxY);
+
+				// worldTransformX = 400 - camera.x;
+				// worldTransformY = 300 - camera.y;
+				// for(let i = 0; i < entities.length; ++i)
+				// {
+				// 	easelEntities[i].x = entities[i][0] + worldTransformX;
+				// 	easelEntities[i].y = entities[i][1] + worldTransformY;
+				// }
+
 				stage.update();
 			}
 
@@ -449,22 +496,17 @@
 
 				let off = 3;
 				let stateShorts = buffer[off++];
-				if(stateShorts != 1)
-					console.log(stateShorts);
 				for(let i = off; off < i + stateShorts; ++off)
 				{
 					let entityState = buffer[off] >> 12;
 					let id = buffer[off] & 4095;
-					console.log(id + ": " + entityState);
-					//entities[id][2] = entityState;
+					entities[id][2] = entityState;
 				}
 
 				for(let i = 0; i < (buffer.length - off) / 4; ++i)
 				{
 					let entityState = buffer[off + i * 4] >> 12;
 					let id = buffer[off + i * 4] & 4095;
-					if(entityState != 0)
-						console.log(id + ": " + entityState);
 					entities[id][0] = buffer[off + i * 4 + 1];
 					entities[id][1] = buffer[off + i * 4 + 2];
 					entities[id][2] = entityState;

@@ -20,7 +20,7 @@
 	"ball":
 	{
 		"bodyType": 2,
-		"restitution": 0.8,
+		"restitution": 1,
 		"userData": {"type": "ball"}
 	},
 	"wall":

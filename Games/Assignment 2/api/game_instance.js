@@ -315,16 +315,16 @@ function initializeComplexEntities()
 
 	// Heavy Doors
 	  // Single Heavy
-	let door2 = createHeavyDoor(1, 1, false, 3, 300, 4324, 191, 104);
+	let door2 = createHeavyDoor(1, 1, false, 3, 300, 1324, 191, 104);
 	  // Triple Heavy
-	let door3 = createHeavyDoor(3, 1, true, 3, 1500, 4268, 61, 104);
+	let door3 = createHeavyDoor(3, 1, true, 3, 1500, 1268, 61, 104);
 	  // Quad Heavy
 	let door1 = createHeavyDoor(4, 1, false, 3, 2000, 600, 105, 192);
 
 	complexState[door3].openScriptRun = false;
 	complexState[door3].openScriptedEvent = () =>
 	{
-		console.log("hello");;
+		console.log("hello");
 		return false;
 	}
 
@@ -354,16 +354,16 @@ function initializeComplexEntities()
 
 	// Elevator
 
-	// Pull Cords
+	// TODO: Pull Cords
 
 	// Pressure Plates
 	// TODO: these should be prismatic joints as well so that the player interacts with them physically...
 	//    We could also do with them being in a function due to the number of things that need to be in
 	//    worldState
 	createEntity(entityTypes['pressure_plate'], { x: 352, y: 9, width: 64, target: door1, weightLimit: 6, weight: 0});
-	createEntity(entityTypes['pressure_plate'], { x: 3992, y: 9, target: door2, weightLimit: 3, weight: 0});
-	createEntity(entityTypes['pressure_plate'], { x: 4072, y: 9, target: door3, weightLimit: 3, weight: 0});
-	createEntity(entityTypes['pressure_plate'], { x: 4456, y: 9, target: door3, weightLimit: 3, weight: 0});
+	//createEntity(entityTypes['pressure_plate'], { x: 992, y: 9, target: door2, weightLimit: 3, weight: 0});
+	createEntity(entityTypes['pressure_plate'], { x: 1072, y: 9, target: door3, weightLimit: 3, weight: 0});
+	createEntity(entityTypes['pressure_plate'], { x: 1456, y: 9, target: door3, weightLimit: 3, weight: 0});
 }
 
 // Runs immediatley at the bottom of this script, initializes the thread
