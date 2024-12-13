@@ -368,7 +368,11 @@ var returnWorld = () => { console.error("returnWorld has not been overridden!");
 // TODO: Fix this
 function saveAccounts(callback = ()=>{})
 {
-	fs.writeFile(accFilePath, JSON.stringify(accounts), (err) => 
+	let acc = [];
+	for(let i = 0; i < accounts.length; ++i)
+		acc[i] = { username: accounts[i].username, password: accounts[i].password};
+
+	fs.writeFile(accFilePath, JSON.stringify(acc), (err) => 
 		{
 			if(err == null)
 				console.log("Accounts File Saved!")

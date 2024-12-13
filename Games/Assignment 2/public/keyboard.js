@@ -44,6 +44,10 @@ var keyboardState = {
     jump:  false
 };
 
+// I need to be able to turn this on and off.. little hacky but I
+//    need it fast!
+var disableDefaultKeyboard = false;
+
 var keyboardUpCallbacks = {};
 var keyboardDownCallbacks = {};
 
@@ -60,6 +64,7 @@ var universalKeyboardEdgeCallback = (name, state)=>{};
 
 function initializeKeyboard(keyMap = exampleKeyMap, disableDefault = true, debugMode = false)
 {
+    disableDefaultKeyboard = disableDefault;
     keyboardState = {};
     for(name of Object.keys(keyMap))
         keyboardState[name] = false;
@@ -114,13 +119,13 @@ function initializeKeyboard(keyMap = exampleKeyMap, disableDefault = true, debug
 
     document.addEventListener("keydown", (e) =>
     {
-        if(updateKey(e.keyCode, true) && disableDefault)
+        if(updateKey(e.keyCode, true) && disableDefaultKeyboard)
             e.preventDefault();
     });
 
     document.addEventListener("keyup", (e) =>
     {
-        if(updateKey(e.keyCode, false) && disableDefault)
+        if(updateKey(e.keyCode, false) && disableDefaultKeyboard)
             e.preventDefault();
     });
 }

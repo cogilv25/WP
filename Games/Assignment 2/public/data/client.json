@@ -1,0 +1,122 @@
+{
+	"world":
+	{
+		"background_tile": "background",
+		"occluders":
+		[
+			{"x": 0, "y": 0, "width": 100, "height": 100},
+			{"x": 0, "y": 0, "width": 100, "height": 100},
+			{"x": 0, "y": 0, "width": 100, "height": 100},
+			{"x": 0, "y": 0, "width": 100, "height": 100},
+			{"x": 0, "y": 0, "width": 100, "height": 100}
+		]
+	},
+	"entities":
+	{
+		"default":
+		{
+			"graphics": "basic",
+			"scaleX": 1,
+			"scaleY": 1
+		},
+		"wall":
+		{
+			"graphics": "tiles",
+			"tile": "wall_tile"
+		},
+		"floor":
+		{
+			"graphics": "tiles",
+			"tile": "wall_tile"
+		},
+		"wall_bound":
+		{
+			"graphics": "tiles",
+			"tile": "bound_wall"
+		},
+		"floor_bound":
+		{
+			"graphics": "tiles",
+			"tile": "bound_floor"
+		},
+		"cake":
+		{
+			"graphics": "image",
+			"image_id": "cake"
+		},
+		"ladder":
+		{
+			"graphics": "image",
+			"image_id": "ladder",
+			"scaleX": 1.5,
+			"scaleY": 1.5
+		},
+		"heavy_door":
+		{
+			"graphics": "image",
+			"image_id": "heavy_door"
+		},
+		"table":
+		{
+			"graphics": "image",
+			"image_id": "table"
+		},
+		"player_s":
+		{
+			"graphics": "sprite",
+			"default_animation": "idle",
+			"generator": 
+			{
+				"images": ["medium_man_stand_idle"],
+				"frames": 
+				{
+					"regX": 16, "regY": 32,
+					"width": 32, "height": 64
+				},
+				"animations":
+				{
+					"idle": [0, 5, "idle", 0.05]
+				}
+			}
+		},
+		"player_l":
+		{
+			"graphics": "sprite",
+			"default_animation": "idle",
+			"scaleX": 2,
+			"scaleY": 1.25,
+			"generator": 
+			{
+				"images": ["large_man_stand_idle", "large_man_balloon"],
+				"frames": 
+				{
+					"regX": 38, "regY": 53,
+					"width": 76, "height": 90
+				},
+				"animations":
+				{
+					"idle": [0, 5, "idle", 0.035],
+					"balloon": [6, 12, null, 0.1]
+				}
+			}
+		},
+		"player_m":
+		{
+			"graphics": "sprite",
+			"default_animation": "idle",
+			"generator": 
+			{
+				"images": ["medium_man_stand_idle"],
+				"frames": 
+				{
+					"regX": 16, "regY": 32,
+					"width": 32, "height": 64
+				},
+				"animations":
+				{
+					"idle": [0, 5, "idle", 0.05]
+				}
+			}
+		}
+	}
+}

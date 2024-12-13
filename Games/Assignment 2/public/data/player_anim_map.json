@@ -1,0 +1,26 @@
+[
+	[
+		"idle",
+		"walk",
+		"crouch",
+		"crouch_walk",
+		"faze",
+		"faze_dash"
+	],
+	[
+		"idle",
+		"walk",
+		"crouch",
+		"crouch_walk",
+		"hodor",
+		"double_jump"
+	],
+	[
+		"idle",
+		"walk",
+		"crouch",
+		"crouch_walk",
+		"balloon",
+		"ground_pound"
+	]
+]

@@ -1,0 +1,1 @@
+I highly recommend reading the README on GitHub as I wrote it in markdown, and although it will be perfectly readable the styling does look rather ugly in a plain text editor! https://github.com/cogilv25/Tower-Rush/blob/main/README.md

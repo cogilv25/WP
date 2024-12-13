@@ -3,48 +3,57 @@
 	"tick_rate": 120,
 	"scale": 30,
 	"hungerDrainAmount": 1,
-	"hungerDrainPeriod": 400,
+	"statDrainPeriod": 900,
 
 	"player": 
 	{
 		"onFloor": false,
+		"crouched": false,
+		"onLadder": 0,
 		"updateDimensions": false,
 		"stage": 3,
 		"hunger": 119,
+		"specialSauce": 64,
+		"specialDrain": 0,
+		"specialForceStop": false,
+		"activeSpecial": "none",
+		"dieOnCollisionFor1Frame": false,
 		"animation": 0,
 		"direction": 1,
 		"interacting": false,
 		"pressurePlate": 0,
-		"interactList": []
+		"interactList": [],
+		"balloonColliderCount": 0
 	},
 
 	"playerStats":
 	[
 		{"speed": 0, "accel": 0, "jump": 0, "height": 56, "crouchHeight": 48, "width": 26},
-		{"speed": 11, "accel": 4, "jump": 8, "height": 56, "crouchHeight": 48, "width": 26},
-		{"speed": 14, "accel": 8, "jump": 10, "height": 64, "crouchHeight": 54, "width": 32},
-		{"speed": 8,  "accel": 3, "jump": 5, "height": 72, "crouchHeight": 60, "width": 38}	
+		{"speed": 11, "accel": 4, "jump": 8, "height": 56, "crouchHeight": 40, "width": 26},
+		{"speed": 14, "accel": 8, "jump": 16, "height": 64, "crouchHeight": 46, "width": 32},
+		{"speed": 15,  "accel": 2, "jump": 20, "height": 72, "crouchHeight": 54, "width": 38}	
 	],
 
 	"spawners":
 	[
-		{"type": "player", "x": 48, "y": 48, "userData": {"type": "player", "id": 0}},
+		{"type": "player", "x": 48, "y": 48, "userData": {"type": "playerda", "id": 0}},
 		{"type": "player", "x": 96, "y": 48, "userData": {"type": "player", "id": 1}}
 	],
 
 	"entities":
 	[
-		{"type":"ball",  "x": 1000, "y": 395},
-		{"type":"ball",  "x": 1030, "y": 400},
-		{"type":"ball",  "x": 1060, "y": 405},
-		{"type":"ball",  "x": 1090, "y": 410},
-		{"type":"ball",  "x": 1120, "y": 415},
-		{"type":"ball",  "x": 1150, "y": 420},
-		{"type":"ball",  "x": 1180, "y": 425},
-		{"type":"ball",  "x": 1210, "y": 430},
-		{"type":"table", "x": 1684, "y": 23},
-		{"type":"cake", "x": 1684, "y": 49},
-		{"type":"floor", "x": 1224, "y": 122, "width": 512, "height": 24},
-		{"type":"floor", "x": 1416, "y": 214, "width": 128, "height": 48}
+		{"type":"table", "x": 3846, "y": 23},
+		{"type":"cake", "x": 3834, "y": 49},
+		{"type":"cake", "x": 3858, "y": 49},
+		{"type":"table", "x": 5040, "y": 23},
+		{"type":"cake", "x": 5028, "y": 49},
+		{"type":"cake", "x": 5052, "y": 49},
+		{"type":"floor", "x": 4204, "y": 148, "width": 528, "height": 48},
+		{"type":"floor", "x": 4408, "y": 256, "width": 120, "height": 72},
+		{"type":"wall", "x": 5416, "y": 928, "width": 24, "height": 1848},
+		{"type":"wall", "x": 5080, "y": 916, "width": 24, "height": 1248},
+		{"type":"wall", "x": 2536, "y": 304, "width": 5064, "height": 24},
+		{"type":"floor", "x": 2560, "y": 1552, "width": 5064, "height": 24},
+		{"type":"wall", "x": 2872, "y": 1840, "width": 5064, "height": 24}
 	]
 }

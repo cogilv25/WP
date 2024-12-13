@@ -1,0 +1,20 @@
+{
+	"path": "assets/",
+	"manifest": [
+		{"src": "images/medium_man.png", "id": "medium_man"},
+		{"src": "images/medium_man_stand_idle.png", "id": "medium_man_stand_idle"},
+		{"src": "images/large_man_stand_idle.png", "id": "large_man_stand_idle"},
+		{"src": "images/large_man_balloon.png", "id": "large_man_balloon"},
+		{"src": "images/wall_tile.png", "id": "wall_tile"},
+		{"src": "images/bound_wall.png", "id": "bound_wall"},
+		{"src": "images/bound_floor.png", "id": "bound_floor"},
+		{"src": "images/cake.png", "id": "cake"},
+		{"src": "images/table.png", "id": "table"},
+		{"src": "images/ladder.png", "id": "ladder"},
+		{"src": "images/background.png", "id": "background"},
+		{"src": "images/heavy_door.png", "id": "heavy_door"},
+		{"src": "audio/tick.ogg", "id": "tick_sound"},
+		{"src": "audio/snore.ogg", "id": "snore_sound"},
+		{"src": "audio/heavy_door.ogg", "id": "heavy_door_sound"}
+	]
+}

@@ -3,7 +3,7 @@
 	{
 		"density": 0.5,
 		"friction": 0.5,
-		"restitution": 0.5,
+		"restitution": 0,
 		"bodyType": 0,
 		"categories": 1,
 		"mask": 65535,
@@ -17,26 +17,36 @@
 		"sendState": false,
 		"userData": {}
 	},
-	"ball":
-	{
-		"bodyType": 2,
-		"restitution": 1,
-		"userData": {"type": "ball"}
-	},
 	"wall":
 	{
+		"restitution": 0,
 		"friction": 0,
 		"userData": {"type": "wall"}
 	},
 	"floor":
 	{
+		"friction": 0,
 		"restitution": 0,
 		"requiresIndex": true,
 		"userData": {"type": "floor"}
 	},
+	"wall_bound":
+	{
+		"friction": 0,
+		"restitution": 0,
+		"userData": {"type": "wall_bound"}
+	},
+	"floor_bound":
+	{
+		"friction": 0,
+		"restitution": 0,
+		"requiresIndex": true,
+		"userData": {"type": "floor_bound"}
+	},
 	"cake":
 	{
 		"mask": 2,
+		"categories": 8,
 		"isSensor": true,
 		"requiresIndex": true,
 		"userData": {"type": "cake"}
@@ -44,6 +54,7 @@
 	"pressure_plate":
 	{
 		"mask": 2,
+		"categories": 8,
 		"isSensor":true,
 		"requiresIndex": true,
 		"sendState": true,
@@ -51,6 +62,7 @@
 	},
 	"table":
 	{
+		"categories": 8,
 		"mask": 65533,
 		"userData": {"type": "table"}
 	},
@@ -70,12 +82,13 @@
 	{
 		"activationEnergy": 3,
 		"stateChangeFunc": "heavy_door",
-		"mask":4,
+		"mask":0,
+		"categories": 8,
 		"isSensor": true,
 		"force": 10,
 		"requiresIndex": true,
 		"private": true,
-		"conplex": true,
+		"complex": true,
 		"userData": {"type": "heavy_door_mechanism"}
 	},
 	"heavy_door_stopper":
@@ -86,9 +99,17 @@
 		"requiresIndex": true,
 		"userData": {"type": "heavy_door_stopper"}
 	},
+	"ladder":
+	{
+		"isSensor": true,
+		"categories": 8,
+		"mask": 2,
+		"userData": {"type": "ladder"}
+	},
 	"player_s":
 	{
 		"friction": 0,
+		"restitution": 0,
 		"bodyType": 2,
 		"categories": 2,
 		"mask": 65533,
@@ -99,6 +120,7 @@
 	"player_m":
 	{
 		"friction": 0,
+		"restitution": 0,
 		"bodyType": 2,
 		"categories": 2,
 		"mask": 65533,
@@ -109,6 +131,7 @@
 	"player_l":
 	{
 		"friction": 0,
+		"restitution": 0,
 		"bodyType": 2,
 		"categories": 2,
 		"mask": 65533,
